@@ -193,6 +193,15 @@ int64 parsed = Time::ParseFormatString("%Y-%m-%d %H:%M", "2026-05-26 20:00");
 | `Float value truncated in implicit conversion` | float where int expected | Cast: `int(value)` |
 | `No matching function 'UI::SetNextWindowPos'` | Wrong param types | Pass int coords: `int(x), int(y)` |
 
+### Reference file: Openplanet Changelog API
+
+This skill includes the full Openplanet changelog as a reference file (`references/Openplanet-Changelog-API.md`). Load it to see which API functions were added or changed in each version:
+
+```angelscript
+[skill openplanet-plugin-dev]
+[load reference Openplanet-Changelog-API.md]
+```
+
 ### 8. Array initialization — inline `int t[] = {...}` fails inside functions
 
 ```angelscript
