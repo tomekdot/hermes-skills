@@ -1,7 +1,7 @@
 ---
 name: openplanet-plugin-dev
 description: "Create, debug, and structure Openplanet AngelScript plugins for Trackmania/Maniaplanet."
-version: 1.0.0
+version: 1.1.0
 author: Hermes Agent
 license: MIT
 platforms: [windows, linux, macos]
@@ -205,12 +205,6 @@ This skill ships with the official Openplanet API documentation as reference fil
 | `Openplanet-Changelog-API.md` | 16KB | Openplanet version history — what was added/changed/fixed |
 | `plugin-skeleton.as` | 1.3KB | Minimal plugin template to start from |
 
-Usage:
-```angelscript
-[skill openplanet-plugin-dev]
-[load reference OpenPlanet-Global-API.md]
-```
-
 ### 8. Array initialization — inline `int t[] = {...}` fails inside functions
 
 ```angelscript
@@ -242,7 +236,6 @@ void InitSchedule() {
     g_WeekDay.Resize(MAX_EVENTS); g_Hour.Resize(MAX_EVENTS);
     g_Min.Resize(MAX_EVENTS); g_Label.Resize(MAX_EVENTS);
     AddEvent(1, 18, 0, "Event name"); // Monday 18:00
-    // ...
 }
 void AddEvent(int d, int h, int m, const string &in l) {
     if (g_Count >= MAX_EVENTS) return;
@@ -252,28 +245,24 @@ void AddEvent(int d, int h, int m, const string &in l) {
 
 int64 GetNextEventTs(int dayOfWeek, int hour, int minute) {
     int64 now = Time::Stamp;
-    int gregYear, gregMonth, gregDay;
-    // Convert to Gregorian, compute weekday diff (see GetWeekdayFromUnix)
     // diff = targetDOW - curDOW; if diff < 0 diff += 7
     // if diff == 0 && time passed: diff = 7
     // return todayStart + diff*86400 + hour*3600 + minute*60
 }
 ```
 
-### 10. Converting between Gregorian and calendar dates
+### 10. Converting between Gregorian and lunar calendar dates
 
-For custom calendars (e.g., 13-moon lunar calendar with 28-day months):
+For custom calendars (e.g., 13-moon with 28-day months):
 
 ```angelscript
-int GetDayOfYear(int year, int month, int day) { /* standard Gregorian DOY */ }
-void DayOfYearToGregorian(int year, int dayOfYear, int &out month, int &out day) { /* reverse */ }
+int GetDayOfYear(int year, int month, int day) { /* Gregorian DOY */ }
+void DayOfYearToGregorian(int year, int dayOfYear, int &out month, int &out day);
 uint64 UnixFromGregorian(int year, int month, int day);
 void GetGregorianFromUnix(uint64 unixTime, int &out year, int &out month, int &out day);
 ```
 
 ### 11. Calendar day indicators (event dots)
-
-When showing recurring events on a calendar grid, maintain a `bool[]` array (size 31) marking which days have events. Rebuild it each frame:
 
 ```angelscript
 bool[] g_DaysWithEvents;
@@ -281,213 +270,183 @@ void Main() { g_DaysWithEvents.Resize(31); while (true) { RebuildEventDays(); yi
 
 void RebuildEventDays() {
     for (int i = 0; i < 31; i++) g_DaysWithEvents[i] = false;
-    // curWday = GetDayOfWeek(curYear, curMonth, curDay); // 0=Sun..6=Sat
-    int curDOW = (curWday == 0) ? 7 : curWday; // convert to 1=Mon..7=Sun
+    int curDOW = (curWday == 0) ? 7 : curWday;
     for (int i = 0; i < g_EventCount; i++) {
         int diff = g_WeekDay[i] - curDOW;
         int64 eventDay = curDay + diff;
         if (eventDay >= 1 && eventDay <= 31) g_DaysWithEvents[eventDay - 1] = true;
     }
 }
-
-// In DrawCalendar, tint cells that have events:
-bool hasEvent = g_DaysWithEvents[day - 1];
-if (hasEvent) {
+// In DrawCalendar:
+if (g_DaysWithEvents[day - 1])
     UI::PushStyleColor(UI::Col::Button, vec4(0.4f, 0.8f, 0.4f, 0.25f));
-} else if (isToday) {
-    UI::PushStyleColor(UI::Col::Button, vec4(0.2f, 0.5f, 1.0f, 0.6f));
-}
-```
-
-For a compact green dot next to a day number (when the cell already has a moon icon, etc.):
-
-```angelscript
-UI::BeginGroup();
-UI::Button(dayLabel, vec2(-1, btnH));
-if (HasEventOnDay(...)) {
-    UI::SameLine();
-    UI::PushStyleColor(UI::Col::Text, vec4(0.3f, 1.0f, 0.4f, 0.9f));
-    UI::Text(".");
-    UI::PopStyleColor();
-}
-// ... moon icon ...
-UI::EndGroup();
-```
-
-Also enhance tooltips for event days:
-
-```angelscript
-if (UI::IsItemHovered()) {
-    UI::BeginTooltip();
-    // ... existing content ...
-    if (HasEventOnDay(...)) {
-        UI::Separator();
-        UI::PushStyleColor(UI::Col::Text, vec4(0.3f, 1.0f, 0.4f, 1.0f));
-        UI::Text("Event today!");
-        UI::PopStyleColor();
-    }
-    UI::EndTooltip();
-}
 ```
 
 ### 12. Upcoming events list with countdown
 
-After the calendar grid, show the next N recurring events sorted by time. Use `array<int64>` at function scope — it works:
-
 ```angelscript
-array<int64> eTs;
-array<string> eLabel;
-int64 now = Time::Stamp;
-
+array<int64> eTs; array<string> eLabel; int64 now = Time::Stamp;
 for (int i = 0; i < g_EventCount; i++) {
     int64 ets = GetNextEventTs(g_WeekDay[i], g_Hour[i], g_Min[i]);
     if (ets > now) { eTs.InsertLast(ets); eLabel.InsertLast(g_Label[i]); }
 }
-
-// Bubble sort ascending
+// Bubble sort
 for (int a = 0; a < int(eTs.Length); a++)
     for (int b = a + 1; b < int(eTs.Length); b++)
-        if (eTs[b] < eTs[a]) {
-            int64 t = eTs[a]; eTs[a] = eTs[b]; eTs[b] = t;
-            string l = eLabel[a]; eLabel[a] = eLabel[b]; eLabel[b] = l;
-        }
-
-int showCount = Math::Min(5, int(eTs.Length));
-for (int i = 0; i < showCount; i++) {
+        if (eTs[b] < eTs[a]) { /* swap */ }
+// Display first 5
+for (int i = 0; i < Math::Min(5, int(eTs.Length)); i++) {
     string ds = Time::FormatString("%a %H:%M", eTs[i]);
-    if (i == 0) { // next — green
-        UI::PushStyleColor(UI::Col::Text, vec4(0.3f, 1.0f, 0.5f, 1.0f));
-        UI::Text("> " + eLabel[i] + " " + ds);
-        UI::PopStyleColor();
-    } else {
-        UI::Text("  " + eLabel[i] + " " + ds);
-    }
+    if (i == 0) { UI::PushStyleColor(UI::Col::Text, vec4(0.3f, 1.0f, 0.5f, 1.0f)); }
+    UI::Text((i==0?"> ":"  ") + eLabel[i] + " " + ds);
+    if (i == 0) UI::PopStyleColor();
 }
-
-// Countdown
-int64 diffSec = eTs[0] - now;
-int days = int(diffSec / 86400);
-int hours = int((diffSec % 86400) / 3600);
-int mins = int((diffSec % 3600) / 60);
-UI::TextDisabled("Next in: " + tostring(days) + "d " + Fmt2(hours) + "h " + Fmt2(mins) + "m");
 ```
 
-### 13. Adding features to existing multi-file plugins
+### 13. Config & Debug Window Pattern
 
-When modifying a plugin with multiple `.as` source files, changes typically span 4 files:
+When a plugin grows beyond a simple display, add a tabbed config+debug window:
 
-| File | What to add |
-|------|-------------|
-| `src/config/Settings.as` | Event arrays + `InitSchedule()` + setting toggle bool |
-| `src/core/CalendarMath.as` | `GetWeekdayFromUnix()`, `GetNextEventTs()`, `HasEventOnDate()` |
-| `src/ui/CalendarWindow.as` | Green dots in grid, tooltip enhancement, upcoming events section |
-| `Main.as` | Call `InitSchedule()` before the main loop |
+```angelscript
+void RenderDebugWindow() {
+    UI::SetNextWindowSize(580, 520, UI::Cond::FirstUseEver);
+    if (!UI::Begin("Config", g_ShowDebugWindow)) { UI::End(); return; }
+    UI::BeginTabBar("Tabs");
+    if (UI::BeginTabItem("Config")) { RenderConfigTab(); UI::EndTabItem(); }
+    if (UI::BeginTabItem("Status")) { RenderStatusTab(); UI::EndTabItem(); }
+    if (UI::BeginTabItem("History")) { RenderHistoryTab(); UI::EndTabItem(); }
+    UI::EndTabBar(); UI::End();
+}
+```
 
-Helper functions go in CalendarMath. Settings toggle goes in Settings.as so user can disable the feature in Openplanet settings UI. UI rendering stays in the UI file.
+**Config tab — toggle rows helper:**
+```angelscript
+void ConfigRow(const string &in label, bool &inout value) {
+    UI::TableNextRow();
+    UI::TableSetColumnIndex(0); UI::Text(label);
+    string s = value ? "ON" : "OFF";
+    vec4 c = value ? vec4(0.3f, 1.0f, 0.4f, 1.0f) : vec4(0.6f, 0.6f, 0.6f, 1.0f);
+    UI::TableSetColumnIndex(1);
+    UI::PushStyleColor(UI::Col::Text, c); UI::Text(s); UI::PopStyleColor();
+}
+```
+
+**Status tab — live plugin state:**
+```angelscript
+void RenderStatusTab() {
+    uint64 now = Time::get_Stamp();
+    UI::Text("Unix: " + tostring(now));
+    UI::Text("Today: " + format_string);
+    UI::TextDisabled("Cached: " + tostring(g_Cache.GetKeys().Length));
+    double val = Compute(now);
+    UI::PushStyleColor(UI::Col::Text, GetColor(val));
+    UI::Text("Phase: " + GetName(val));
+    UI::PopStyleColor();
+}
+```
+
+**Typical tab breakdown:**
+| Tab | Content |
+|-----|---------|
+| Config | All `[Setting]` toggles in a table with ON/OFF |
+| Status | Live values, cache queues, computed data |
+| History | Data tables, map visits, recorded events |
+| Reference | Static reference data (nodes, calibration tables) |
+
+### 14. &inout on primitive types is NOT allowed
+
+**Error if wrong:** `Only object types that support object handles can use &inout. Use &in or &out instead`
+
+Primitive types (`bool`, `int`, `float`, `double`, `uint64`, etc.) cannot use `&inout` in function parameters — only object types (`string`, arrays, classes) can.
+
+```angelscript
+// WRONG:
+void ConfigRow(const string &in label, bool &inout value) { }  // ERROR
+
+// CORRECT — pass by value for reads:
+void ConfigRow(const string &in label, bool value) { }
+
+// CORRECT — use &out for write-only, &in for read-only references:
+void SetResult(int &out result) { result = 42; }
+void ProcessData(const string &in data) { }  // &in is fine for objects
+```
+
+### 15. Text::Format takes exactly ONE value argument
+
+**Error if wrong:** `No matching signatures to 'Text::Format(const string, double, double)'`
+
+`Text::Format()` in Openplanet's AngelScript is NOT like C printf — it accepts **only one** value parameter, not variadic arguments:
+
+```angelscript
+// WRONG — multiple values in one call:
+Text::Format("%.6f (%.2f%%)", sidereal, sidereal * 100.0);  // ERROR
+
+// CORRECT — use two calls concatenated:
+Text::Format("%.6f", sidereal) + " (" + Text::Format("%.2f%%", sidereal * 100.0) + ")";
+
+// Single value works fine:
+Text::Format("%.4f°", sidereal * 360.0);
+Text::Format("%d items", count);
+Text::Format("%.1f km/h", speed);
+```
+### 16. Cleaning up when removing a feature
+
+Check EVERY `.as` file when removing feature from a multi-file plugin:
+
+1. **Settings.as** — Remove setting toggle, event arrays, InitSchedule, helpers
+2. **Core/Math files** — Remove calc functions (GetNextTs, HasEvent, etc.)
+3. **UI files** — Remove rendering: dots, tooltip lines, event sections
+4. **Diagnostics file** — Remove dead tab content and orphaned functions
+5. **Main.as** — Remove InitSchedule() call
+
+Use `grep -rn "DeletedName" Plugins/<name>/` before deleting to catch all references.
 
 ---
 
 ## Openplanet Folder Structure Reference
 
-The `Openplanet4/` folder contains everything Openplanet needs to run. Knowing what lives where saves time when debugging or extending plugins.
-
 ### Root layout
-
 ```
 Openplanet4/
-├── docs/                  # API documentation (Markdown + .h headers)
-├── Plugins/               # Your installed/developed plugins (folder-based or .op)
+├── docs/                  # API documentation (Markdown + .h)
+├── Plugins/               # Your installed/developed plugins
 ├── Plugins-Archive/       # Disabled/old plugins
-├── Plugins-Developer/     # WIP/dev plugin copies
-├── Plugins-Downloaded/    # Downloaded .op files (ZIPs)
-├── PluginStorage/         # Per-plugin persistent data files
-├── Openplanet/            # Openplanet's own runtime files
-├── IX/                    # Internal scripts (empty unless extracted)
-├── Scripts/               # User scripts (not cleared on update)
+├── Plugins-Developer/     # WIP/dev copies
+├── Plugins-Downloaded/    # Downloaded .op files (ZIP archives)
+├── PluginStorage/         # Per-plugin persistent data
+├── Openplanet/            # Openplanet's runtime files
+├── Scripts/               # User scripts (survives updates)
 ├── ManiaScript/           # ManiaScript libraries
-├── lib/                   # Native DLLs
-├── Settings.ini           # Openplanet settings (not plugin settings)
-├── Gui.ini                # Window positions & sizes for built-in windows
-├── Openplanet.log         # Debug log — check here for compilation errors
-├── Openplanet.h           # Full C++ class hierarchy for the game engine
-├── Openplanet4.json       # Openplanet plugin registry metadata
-└── OpenplanetCore.json    # Core plugin metadata (built-in plugins)
+├── Settings.ini           # Openplanet-wide settings
+├── Gui.ini                # ImGui window positions/sizes
+├── Openplanet.log         # Debug log — check for compilation errors
+├── Openplanet.h           # C++ game class hierarchy
+├── Openplanet4.json       # Plugin registry metadata
+└── OpenplanetCore.json    # Built-in plugin metadata
 ```
 
-### Openplanet/ — Runtime files
-
+### Openplanet/ runtime files
 ```
-Openplanet/
-├── Scripts/               # Built-in scripts you can import in info.toml
-│   ├── Compatibility.as   # Compatibility helpers
-│   ├── Dialogs.as         # Simple dialog rendering framework
-│   ├── Patch.as           # Memory patching helpers
-│   ├── Plugin_BigDecor.as # Big decor placement
-│   ├── Plugin_EditorDeveloper.as  # Editor development tools
-│   ├── Plugin_HelloWorld.as       # Example plugin
-│   ├── Plugin_InfiniteEmbedSize.as
-│   ├── Plugin_MapTools.as
-│   └── Plugin_StadiumUnlock.as
-├── Plugins/               # Built-in system plugins (loaded by Openplanet)
-│   ├── Camera/            # Camera control plugin dependency
-│   ├── Controls/          # Input control system
-│   ├── Discord/           # Discord Rich Presence integration
-│   ├── Finetuner/         # Advanced settings tuning
-│   ├── PluginManager/     # Plugin management UI
-│   ├── UsefulInformation/ # In-game info overlay
-│   └── VehicleState/      # Vehicle telemetry API (important for car plugins!)
-├── Fonts/                 # Available fonts (use in UI::PushFont)
-│   ├── DroidSans.ttf / DroidSans-Bold.ttf
-│   ├── DroidSansMono.ttf
-│   ├── ManiaIcons.ttf     # Icon font (Icons:: namespace)
-│   ├── Montserrat.ttf / Montserrat-Bold.ttf
-│   ├── Oswald.ttf / Oswald-Bold.ttf
-├── DefaultStyle.toml      # Default UI style values
-├── cacert.pem             # SSL certificates for HTTPS requests
-└── READ_ME.txt            # Warning: don't put your scripts here!
+Scripts/     — Built-in imports (Dialogs.as, Patch.as, etc.)
+Plugins/     — System plugins (VehicleState, Camera, Controls, Discord)
+Fonts/       — DroidSans*, Montserrat*, Oswald*, ManiaIcons.ttf
 ```
 
-**⚠️ IMPORTANT:** Never put custom scripts in `Openplanet/Scripts/` — they get **deleted on update**. Use `Openplanet4/Scripts/` instead (your user data folder).
+**⚠️ Never put scripts in `Openplanet/Scripts/` — deleted on update. Use `Openplanet4/Scripts/`.**
 
-### Key config files
-
-| File | Description |
-|------|-------------|
-| `Settings.ini` | Openplanet-wide settings (not per-plugin). Includes window positions, enabled/disabled plugins, etc. |
-| `Gui.ini` | Saves window sizes/positions of ImGui windows. Deleting this resets all window layouts. |
-| `Openplanet4.json` | Plugin registry — metadata about all installed plugins, their versions, signature info. |
-| `OpenplanetCore.json` | Same as above but for built-in system plugins. |
-| `Openplanet.h` | The C++ header defining the complete game class hierarchy. Not directly usable in AngelScript but useful for finding property names (e.g., `VehicleState::ViewingPlayerState().FrontSpeed`). |
-
-### Plugin dependencies (built-in)
-
-These are available as `[script] dependencies` in `info.toml`:
-
+### Plugin dependencies in info.toml
 ```toml
 [script]
-dependencies = [ "VehicleState" ]  # Car physics API
-# Also available: Camera, Controls, Discord
-```
-
-The source for these is in `Openplanet/Plugins/<Name>/`. Study them to understand the API.
-
-### Fonts in UI
-
-```angelscript
-// These font files are in Openplanet/Fonts/ and can be loaded:
-UI::PushFont("DroidSans", 16.0);
-UI::PushFont("Montserrat-Bold", 18.0);
-UI::PushFont("Oswald", 14.0);
-// Don't forget:
-UI::PopFont();
-```
-
-### Scripts available for import
-
-In `info.toml`:
-```toml
-[script]
+dependencies = [ "VehicleState" ]  # Also: Camera, Controls, Discord
 imports = [ "Dialogs.as", "Patch.as" ]
 ```
 
-These live in `Openplanet/Scripts/` and are compiled into your plugin at load time. Each has a `.as.sig` signature file for integrity checking.
+### Reference files
+
+| File | Size | Contents |
+|------|------|----------|
+| `OpenPlanet-Global-API.md` | 73KB | Full global API ref (Time, UI, nvg, Net, IO) |
+| `Openplanet-Starter-API.md` | 60KB | Plugin dev guide, callbacks, settings, icons |
+| `OpenPlanet-Basic-API.md` | 42KB | Tutorials: NanoVG, ImGui, shapes, colors |
+| `Openplanet-Changelog-API.md` | 16KB | Version history |
+| `plugin-skeleton.as` | 1.3KB | Minimal plugin template |
