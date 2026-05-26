@@ -113,7 +113,7 @@ For converting from Unix timestamp directly:
 ```angelscript
 int GetWeekdayFromUnix(uint64 unixTime) {
     uint64 daysSinceEpoch = unixTime / 86400;
-    return int((daysSinceEpoch + 3) % 7); // 0=Sun..6=Sat
+    return int((daysSinceEpoch + 4) % 7); // 0=Sun..6=Sat (Jan 1 1970 = Thu = 4)
 }
 ```
 
@@ -193,13 +193,22 @@ int64 parsed = Time::ParseFormatString("%Y-%m-%d %H:%M", "2026-05-26 20:00");
 | `Float value truncated in implicit conversion` | float where int expected | Cast: `int(value)` |
 | `No matching function 'UI::SetNextWindowPos'` | Wrong param types | Pass int coords: `int(x), int(y)` |
 
-### Reference file: Openplanet Changelog API
+### Reference files
 
-This skill includes the full Openplanet changelog as a reference file (`references/Openplanet-Changelog-API.md`). Load it to see which API functions were added or changed in each version:
+This skill ships with the official Openplanet API documentation as reference files. Load any of them when you need API details:
 
+| File | Size | Contents |
+|------|------|----------|
+| `OpenPlanet-Global-API.md` | 73KB | Full global API reference (Time, UI, nvg, Net, IO, all namespaces) |
+| `Openplanet-Starter-API.md` | 60KB | Plugin development guide, callbacks, settings, icons |
+| `OpenPlanet-Basic-API.md` | 42KB | Tutorials: NanoVG drawing, ImGui widgets, shapes, colors |
+| `Openplanet-Changelog-API.md` | 16KB | Openplanet version history — what was added/changed/fixed |
+| `plugin-skeleton.as` | 1.3KB | Minimal plugin template to start from |
+
+Usage:
 ```angelscript
 [skill openplanet-plugin-dev]
-[load reference Openplanet-Changelog-API.md]
+[load reference OpenPlanet-Global-API.md]
 ```
 
 ### 8. Array initialization — inline `int t[] = {...}` fails inside functions
