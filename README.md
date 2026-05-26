@@ -37,12 +37,12 @@ You can also find this plugin on ClawHub:
 
 This repository is tagged around:
 
-- Hermes skill
-- Openplanet
-- Trackmania
-- Maniaplanet
-- AngelScript
-- plugin development
+- hermes-skill
+- openplanet
+- trackmania
+- maniaplanet
+- angelscript
+- plugin-development
 
 ## 📄 License
 
