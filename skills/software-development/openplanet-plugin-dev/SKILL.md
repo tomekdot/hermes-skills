@@ -384,3 +384,110 @@ When modifying a plugin with multiple `.as` source files, changes typically span
 | `Main.as` | Call `InitSchedule()` before the main loop |
 
 Helper functions go in CalendarMath. Settings toggle goes in Settings.as so user can disable the feature in Openplanet settings UI. UI rendering stays in the UI file.
+
+---
+
+## Openplanet Folder Structure Reference
+
+The `Openplanet4/` folder contains everything Openplanet needs to run. Knowing what lives where saves time when debugging or extending plugins.
+
+### Root layout
+
+```
+Openplanet4/
+├── docs/                  # API documentation (Markdown + .h headers)
+├── Plugins/               # Your installed/developed plugins (folder-based or .op)
+├── Plugins-Archive/       # Disabled/old plugins
+├── Plugins-Developer/     # WIP/dev plugin copies
+├── Plugins-Downloaded/    # Downloaded .op files (ZIPs)
+├── PluginStorage/         # Per-plugin persistent data files
+├── Openplanet/            # Openplanet's own runtime files
+├── IX/                    # Internal scripts (empty unless extracted)
+├── Scripts/               # User scripts (not cleared on update)
+├── ManiaScript/           # ManiaScript libraries
+├── lib/                   # Native DLLs
+├── Settings.ini           # Openplanet settings (not plugin settings)
+├── Gui.ini                # Window positions & sizes for built-in windows
+├── Openplanet.log         # Debug log — check here for compilation errors
+├── Openplanet.h           # Full C++ class hierarchy for the game engine
+├── Openplanet4.json       # Openplanet plugin registry metadata
+└── OpenplanetCore.json    # Core plugin metadata (built-in plugins)
+```
+
+### Openplanet/ — Runtime files
+
+```
+Openplanet/
+├── Scripts/               # Built-in scripts you can import in info.toml
+│   ├── Compatibility.as   # Compatibility helpers
+│   ├── Dialogs.as         # Simple dialog rendering framework
+│   ├── Patch.as           # Memory patching helpers
+│   ├── Plugin_BigDecor.as # Big decor placement
+│   ├── Plugin_EditorDeveloper.as  # Editor development tools
+│   ├── Plugin_HelloWorld.as       # Example plugin
+│   ├── Plugin_InfiniteEmbedSize.as
+│   ├── Plugin_MapTools.as
+│   └── Plugin_StadiumUnlock.as
+├── Plugins/               # Built-in system plugins (loaded by Openplanet)
+│   ├── Camera/            # Camera control plugin dependency
+│   ├── Controls/          # Input control system
+│   ├── Discord/           # Discord Rich Presence integration
+│   ├── Finetuner/         # Advanced settings tuning
+│   ├── PluginManager/     # Plugin management UI
+│   ├── UsefulInformation/ # In-game info overlay
+│   └── VehicleState/      # Vehicle telemetry API (important for car plugins!)
+├── Fonts/                 # Available fonts (use in UI::PushFont)
+│   ├── DroidSans.ttf / DroidSans-Bold.ttf
+│   ├── DroidSansMono.ttf
+│   ├── ManiaIcons.ttf     # Icon font (Icons:: namespace)
+│   ├── Montserrat.ttf / Montserrat-Bold.ttf
+│   ├── Oswald.ttf / Oswald-Bold.ttf
+├── DefaultStyle.toml      # Default UI style values
+├── cacert.pem             # SSL certificates for HTTPS requests
+└── READ_ME.txt            # Warning: don't put your scripts here!
+```
+
+**⚠️ IMPORTANT:** Never put custom scripts in `Openplanet/Scripts/` — they get **deleted on update**. Use `Openplanet4/Scripts/` instead (your user data folder).
+
+### Key config files
+
+| File | Description |
+|------|-------------|
+| `Settings.ini` | Openplanet-wide settings (not per-plugin). Includes window positions, enabled/disabled plugins, etc. |
+| `Gui.ini` | Saves window sizes/positions of ImGui windows. Deleting this resets all window layouts. |
+| `Openplanet4.json` | Plugin registry — metadata about all installed plugins, their versions, signature info. |
+| `OpenplanetCore.json` | Same as above but for built-in system plugins. |
+| `Openplanet.h` | The C++ header defining the complete game class hierarchy. Not directly usable in AngelScript but useful for finding property names (e.g., `VehicleState::ViewingPlayerState().FrontSpeed`). |
+
+### Plugin dependencies (built-in)
+
+These are available as `[script] dependencies` in `info.toml`:
+
+```toml
+[script]
+dependencies = [ "VehicleState" ]  # Car physics API
+# Also available: Camera, Controls, Discord
+```
+
+The source for these is in `Openplanet/Plugins/<Name>/`. Study them to understand the API.
+
+### Fonts in UI
+
+```angelscript
+// These font files are in Openplanet/Fonts/ and can be loaded:
+UI::PushFont("DroidSans", 16.0);
+UI::PushFont("Montserrat-Bold", 18.0);
+UI::PushFont("Oswald", 14.0);
+// Don't forget:
+UI::PopFont();
+```
+
+### Scripts available for import
+
+In `info.toml`:
+```toml
+[script]
+imports = [ "Dialogs.as", "Patch.as" ]
+```
+
+These live in `Openplanet/Scripts/` and are compiled into your plugin at load time. Each has a `.as.sig` signature file for integrity checking.
