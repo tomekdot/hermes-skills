@@ -16,6 +16,13 @@ metadata:
 
 Openplanet is a plugin/script development platform for Nadeo games (Trackmania 2020, Maniaplanet). Plugins are written in AngelScript (.as), a C++-like scripting language. This skill covers creating folder-based dev plugins, debugging compilation errors, and working around API quirks.
 
+## Full API Documentation
+
+The complete, up-to-date Openplanet API reference is available online:
+**https://openplanet.dev/docs**
+
+This includes all namespaces (UI, Time, IO, Net, Json, Math, nvg, etc.), function signatures, enums, and callback documentation. Always check the online docs for the latest API additions and changes.
+
 ## Project Layout
 
 Two layouts exist:
