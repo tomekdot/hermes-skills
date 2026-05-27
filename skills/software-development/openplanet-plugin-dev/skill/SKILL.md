@@ -199,7 +199,6 @@ int64 parsed = Time::ParseFormatString("%Y-%m-%d %H:%M", "2026-05-26 20:00");
 | `No matching symbol 'UI::TextColored'` | Function doesn't exist | Use PushStyleColor(UI::Col::Text, ...) |
 | `Float value truncated in implicit conversion` | float where int expected | Cast: `int(value)` |
 | `Signed/Unsigned mismatch` warning | Mixing `int` and `uint` in comparisons | Cast to match: `uint(idx)` or `int(arr.Length)` |
-| `Signed/Unsigned mismatch` warning | Mixing `int` and `uint` | Cast: `uint(idx)` or `int(arr.Length)` |
 | `No matching signatures to 'UI::InputText(...)'` | Wrong param order (e.g. bufferSize as 3rd) | Use `bool&out changed` as 3rd param |
 | `Expression must be of boolean type, instead found 'string'` | Using InputText return in `if()` | Call InputText separately, check `bool&out changed` after |
 | `No matching function 'UI::SetNextWindowPos'` | Wrong param types | Pass int coords: `int(x), int(y)` |
@@ -444,7 +443,27 @@ if (changed) {
 
 Note: `InputText` accepts `string` (not `string&`) for the text parameter — the callback or `changed` flag handles incremental updates. You don't need to pass `256` as bufferSize; the string grows dynamically.
 
-### 16. Text::Format takes exactly ONE value argument
+### 16. string::IndexOf — takes exactly ONE parameter (no offset)
+
+**Error if wrong:** `No matching signatures to 'string::IndexOf(const string, int)'`
+
+`string::IndexOf` in Openplanet AngelScript takes **only one parameter** — the substring to find. There is NO second parameter for start offset (unlike C# or JavaScript).
+
+```angelscript
+// WRONG — IndexOf with 2 params (substring + offset) does NOT exist:
+int idx = text.IndexOf("[", startPos);  // ERROR
+
+// CORRECT — IndexOf with 1 param only:
+int idx = text.IndexOf("[");  // Returns -1 if not found
+
+// To search from a position, use SubStr first:
+int idx = text.SubStr(startPos).IndexOf("[");
+if (idx != -1) idx += startPos; // Adjust for the offset
+```
+
+Also note: `IndexOf` returns `int` (not `uint`), and returns `-1` when not found.
+
+### 17. Text::Format takes exactly ONE value argument
 
 **Error if wrong:** `No matching signatures to 'Text::Format(const string, double, double)'`
 
@@ -462,7 +481,7 @@ Text::Format("%.4f°", sidereal * 360.0);
 Text::Format("%d items", count);
 Text::Format("%.1f km/h", speed);
 ```
-### 17. Signed/Unsigned mismatch warnings
+### 18. Signed/Unsigned mismatch warnings
 
 **Warning:** `WARN : Signed/Unsigned mismatch` — appears when mixing `int` (signed) and `uint` (unsigned) in comparisons, assignments, or array indexing.
 
