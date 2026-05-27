@@ -1,7 +1,7 @@
 ---
 name: openplanet-plugin-dev
 description: "Create, debug, and structure Openplanet AngelScript plugins for Trackmania/Maniaplanet."
-version: 1.4.0
+version: 1.5.0
 author: Hermes Agent
 license: MIT
 platforms: [windows, linux, macos]
@@ -192,6 +192,9 @@ int64 parsed = Time::ParseFormatString("%Y-%m-%d %H:%M", "2026-05-26 20:00");
 | `No matching symbol 'UI::TextColored'` | Function doesn't exist | Use PushStyleColor(UI::Col::Text, ...) |
 | `Float value truncated in implicit conversion` | float where int expected | Cast: `int(value)` |
 | `Signed/Unsigned mismatch` warning | Mixing `int` and `uint` in comparisons | Cast to match: `uint(idx)` or `int(arr.Length)` |
+| `Signed/Unsigned mismatch` warning | Mixing `int` and `uint` | Cast: `uint(idx)` or `int(arr.Length)` |
+| `No matching signatures to 'UI::InputText(...)'` | Wrong param order (e.g. bufferSize as 3rd) | Use `bool&out changed` as 3rd param |
+| `Expression must be of boolean type, instead found 'string'` | Using InputText return in `if()` | Call InputText separately, check `bool&out changed` after |
 | `No matching function 'UI::SetNextWindowPos'` | Wrong param types | Pass int coords: `int(x), int(y)` |
 
 ### Reference files
@@ -201,6 +204,7 @@ This skill ships with the official Openplanet API documentation as reference fil
 | File | Size | Contents |
 |------|------|----------|
 | `OpenPlanet-Global-API.md` | 73KB | Full global API reference (Time, UI, nvg, Net, IO, all namespaces) |
+| `OpenPlanet-API-Reference.md` | 24KB | Complete API reference with all namespaces, enums, and function signatures |
 | `Openplanet-Starter-API.md` | 60KB | Plugin development guide, callbacks, settings, icons |
 | `OpenPlanet-Basic-API.md` | 42KB | Tutorials: NanoVG drawing, ImGui widgets, shapes, colors |
 | `Openplanet-Changelog-API.md` | 16KB | Openplanet version history — what was added/changed/fixed |
