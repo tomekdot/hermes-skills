@@ -1,7 +1,7 @@
 ---
 name: openplanet-plugin-dev
 description: "Create, debug, and structure Openplanet AngelScript plugins for Trackmania/Maniaplanet."
-version: 1.1.0
+version: 1.4.0
 author: Hermes Agent
 license: MIT
 platforms: [windows, linux, macos]
@@ -191,6 +191,7 @@ int64 parsed = Time::ParseFormatString("%Y-%m-%d %H:%M", "2026-05-26 20:00");
 | `No matching symbol 'UI::Font::...'` | Font enum doesn't exist | Use PushFontSize/PopFontSize |
 | `No matching symbol 'UI::TextColored'` | Function doesn't exist | Use PushStyleColor(UI::Col::Text, ...) |
 | `Float value truncated in implicit conversion` | float where int expected | Cast: `int(value)` |
+| `Signed/Unsigned mismatch` warning | Mixing `int` and `uint` in comparisons | Cast to match: `uint(idx)` or `int(arr.Length)` |
 | `No matching function 'UI::SetNextWindowPos'` | Wrong param types | Pass int coords: `int(x), int(y)` |
 
 ### Reference files
@@ -262,8 +263,9 @@ uint64 UnixFromGregorian(int year, int month, int day);
 void GetGregorianFromUnix(uint64 unixTime, int &out year, int &out month, int &out day);
 ```
 
-### 11. Calendar day indicators (event dots)
+### 11. Calendar day indicators (event dots / inline data)
 
+**Event dots — mark days that have events:**
 ```angelscript
 bool[] g_DaysWithEvents;
 void Main() { g_DaysWithEvents.Resize(31); while (true) { RebuildEventDays(); yield(); } }
@@ -281,6 +283,21 @@ void RebuildEventDays() {
 if (g_DaysWithEvents[day - 1])
     UI::PushStyleColor(UI::Col::Button, vec4(0.4f, 0.8f, 0.4f, 0.25f));
 ```
+
+**Inline data in each cell — show computed value without hover:**
+```angelscript
+// In each cell, after drawing the day number button:
+UI::TextDisabled(Text::Format("%.0f", progress * 100.0));  // e.g. "23" = 23%%
+
+// Moon phase icon alongside:
+auto@ tex = Moon::GetTextureForPosition(synodic);
+if (tex !is null) {
+    UI::SameLine();
+    UI::Image(tex, vec2(14, 14));
+}
+```
+
+The inline percentage lets users see moon/sidereal cycle at a glance without mousing over each day. Combine with a tooltip for full details, and keep the inline text compact (2-3 chars: `"23"` not `"23.4%"`).
 
 ### 12. Upcoming events list with countdown
 
@@ -321,7 +338,7 @@ void RenderDebugWindow() {
 
 **Config tab — toggle rows helper:**
 ```angelscript
-void ConfigRow(const string &in label, bool &inout value) {
+void ConfigRow(const string &in label, bool value) {
     UI::TableNextRow();
     UI::TableSetColumnIndex(0); UI::Text(label);
     string s = value ? "ON" : "OFF";
@@ -330,6 +347,8 @@ void ConfigRow(const string &in label, bool &inout value) {
     UI::PushStyleColor(UI::Col::Text, c); UI::Text(s); UI::PopStyleColor();
 }
 ```
+
+**Note:** `bool` is a primitive — pass by value, not `&inout`. See quirk #14 below.
 
 **Status tab — live plugin state:**
 ```angelscript
@@ -371,7 +390,50 @@ void SetResult(int &out result) { result = 42; }
 void ProcessData(const string &in data) { }  // &in is fine for objects
 ```
 
-### 15. Text::Format takes exactly ONE value argument
+### 15. UI::InputText — return type vs. bool&out changed
+
+**Error if wrong:**
+- `Expression must be of boolean type, instead found 'string'` — using return value directly in `if()`
+- `No matching signatures to 'UI::InputText(...)'` — wrong parameter order
+
+Openplanet has TWO overloads:
+
+```angelscript
+// Overload 1 — returns string, NO bool&out
+string UI::InputText(const string&in label, string str,
+    int flags = UI::InputTextFlags::None,
+    UI::InputTextCallback@ callback = null);
+
+// Overload 2 — bool&out changed as 3rd param, returns string
+string UI::InputText(const string&in label, string str,
+    bool&out changed,
+    int flags = UI::InputTextFlags::None,
+    UI::InputTextCallback@ callback = null);
+```
+
+**The trap:** `UI::InputText` ALWAYS returns `string`, even with the `bool&out` overload. You CANNOT use it directly in `if()`. Instead, call it then check the `changed` flag separately.
+
+```angelscript
+// WRONG — overload 1 returns string, can't use in if():
+if (UI::InputText("##Input", g_Text, UI::InputTextFlags::EnterReturnsTrue)) { }  // ERROR
+
+// WRONG — overload 2 ALSO returns string, bool&out doesn't change return type:
+if (UI::InputText("##Input", g_Text, changed, UI::InputTextFlags::EnterReturnsTrue)) { }  // ERROR
+
+// WRONG — bufferSize (int) as 3rd param doesn't match any overload:
+UI::InputText("##Input", g_Text, 256, UI::InputTextFlags::EnterReturnsTrue);     // ERROR
+
+// CORRECT — call InputText, then check changed separately:
+bool changed = false;
+UI::InputText("##Input", g_Text, changed, UI::InputTextFlags::EnterReturnsTrue);
+if (changed) {
+    // Enter was pressed
+}
+```
+
+Note: `InputText` accepts `string` (not `string&`) for the text parameter — the callback or `changed` flag handles incremental updates. You don't need to pass `256` as bufferSize; the string grows dynamically.
+
+### 16. Text::Format takes exactly ONE value argument
 
 **Error if wrong:** `No matching signatures to 'Text::Format(const string, double, double)'`
 
@@ -389,7 +451,28 @@ Text::Format("%.4f°", sidereal * 360.0);
 Text::Format("%d items", count);
 Text::Format("%.1f km/h", speed);
 ```
-### 16. Cleaning up when removing a feature
+### 17. Signed/Unsigned mismatch warnings
+
+**Warning:** `WARN : Signed/Unsigned mismatch` — appears when mixing `int` (signed) and `uint` (unsigned) in comparisons, assignments, or array indexing.
+
+This is a WARNING, not an error — compilation succeeds, but indicates a potential logic bug.
+
+```angelscript
+// WARNING trigger examples:
+uint length = arr.Length;    // arr.Length returns uint
+int idx = someValue;
+if (idx < length) { ... }    // int < uint → signed/unsigned mismatch warning
+
+// CORRECT — cast to match types:
+if (uint(idx) < length) { ... }
+// or
+int len = int(arr.Length);
+if (idx < len) { ... }
+```
+
+Common places this appears: comparing loop counters against `array.Length` (which returns `uint`), or storing `uint` results in `int` variables. Fix by explicitly casting one side to match the other.
+
+### 18. Cleaning up when removing a feature
 
 Check EVERY `.as` file when removing feature from a multi-file plugin:
 
