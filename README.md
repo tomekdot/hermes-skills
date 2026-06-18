@@ -28,10 +28,6 @@ Hermes Agent skills by tomekdot.
 - **Skill**: `skills/software-development/rename-git-commits/`
 - **What**: Rewrite commit messages in git history — non-interactive methods for Windows/MSYS
 
-### 🔧 GitHub Workflow
-- **Skill**: `skills/devops/github/github-workflow/`
-- **What**: Complete GitHub workflow — auth, repos, issues, PRs, code review, CI/CD using gh CLI
-
 ### 🚀 GitHub Pages Deploy
 - **Skill**: `skills/devops/github-pages-deploy/`
 - **What**: Build and deploy React/Vite projects to GitHub Pages
