@@ -202,11 +202,24 @@ See `references/cherry-pitfalls.md` for detailed pitfalls including:
 - git filter-branch is unreliable on Windows (timeouts, corrupted history)
 - GIT_SEQUENCE_EDITOR with sed may silently fail on MSYS
 - git rebase -i --exec with commit --amend doesn't work
-- **Always copy skills from AppData to repo BEFORE rewriting history** — force push can delete files not tracked by git
-- **Verify commit count BEFORE force push** — `git log --oneline | wc -l` must match backup
-- **webhook-subscriptions and other platform skills are NOT yours** — don't add them to your repo
-- **When cherry-picking many commits, conflicts cascade** — use `git checkout --theirs` for add/add conflicts, then `git add -A && git commit`
+- Always copy skills from AppData to repo BEFORE rewriting history
+- Verify commit count BEFORE force push
+- Platform skills (webhook-subscriptions etc.) are NOT yours
+- Cascading conflicts when cherry-pick many commits
 
----
+### Windows/MSYS without PTY
 
-## Pitfall: Windows/MSYS without PTY\n\nWhen working on Windows with git-bash/MSYS (no PTY available):\n- `git rebase -i` opens an interactive editor that cannot be used\n- `GIT_SEQUENCE_EDITOR` with `sed` may work for simple cases but breaks on merge conflicts\n- Cherry-pick method (Method 2b) works but requires handling conflicts with `git checkout --theirs <file>`\n- When cherry-picking commits that modify the same files as existing commits, use: `git cherry-pick --no-commit && git add --theirs <conflict-files> && git commit`\n- For commits already on GitHub that can't be cleanly cherry-picked, **Method 3 (follow-up commit) is the safest fallback**<br>\n\n## Remember\n\n- ❌ `update skill` — lowercase first letter\n- ✅ `Update skill` — capital first letter\n- ❌ `feat: add feature` — conventional commit prefix\n- ✅ `Add feature` — plain English, no prefix\n- After push: either amend + force-push (dangerous on shared branches) OR new empty commit (safe)
+When working on Windows with git-bash/MSYS (no PTY available):
+- `git rebase -i` opens an interactive editor that cannot be used
+- `GIT_SEQUENCE_EDITOR` with `sed` may work for simple cases but breaks on merge conflicts
+- Cherry-pick method (Method 2b) works but requires handling conflicts with `git checkout --theirs <file>`
+- When cherry-picking commits that modify the same files: `git cherry-pick --no-commit && git checkout --theirs . && git add -A && git commit`
+- For commits already on GitHub that can't be cleanly cherry-picked, **Method 3 (follow-up commit) is the safest fallback**
+
+## Remember
+
+- ❌ `update skill` — lowercase first letter
+- ✅ `Update skill` — capital first letter
+- ❌ `feat: add feature` — conventional commit prefix
+- ✅ `Add feature` — plain English, no prefix
+- After push: either amend + force-push (dangerous on shared branches) OR new empty commit (safe)
