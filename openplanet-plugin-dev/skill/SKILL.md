@@ -203,7 +203,7 @@ int64 parsed = Time::ParseFormatString("%Y-%m-%d %H:%M", "2026-05-26 20:00");
 | `Expression must be of boolean type, instead found 'string'` | Using InputText return in `if()` | Call InputText separately, check `bool&out changed` after |
 | `No matching function 'UI::SetNextWindowPos'` | Wrong param types | Pass int coords: `int(x), int(y)` |
 
-### Reference files
+**Reference files**
 
 This skill ships with the official Openplanet API documentation as reference files. Load any of them when you need API details:
 
@@ -526,7 +526,28 @@ Common places this appears: comparing loop counters against `array.Length` (whic
 
 Use `Icons::` namespace constants. Available icon families include FontAwesome (`Icons::Clock`, `Icons::Car`, `Icons::Info`, `Icons::Calendar`, `Icons::QuestionCircle`, `Icons::Crosshairs`, `Icons::Exclamation`, etc.) and Kenney (`Icons::Kenney::Plus`, `Icons::Kenney::Info`, etc.). Full list in the Starter API docs.
 
-### 21. Cleaning up when removing a feature
+### 21. Per-window main-menu visibility
+
+Use when a plugin exposes multiple windows from one menu and some should be hidden by default.
+```angelscript
+[Setting category="General" name="Show Calendar in Main Menu"]
+bool S_ShowCalendarInMainMenu = true;
+
+[Setting category="General" name="Show Player Profile in Main Menu"]
+bool S_ShowPlayerProfileInMainMenu = true;
+```
+
+In `RenderMenuMain()` guard each item independently:
+```angelscript
+if (S_ShowCalendarInMainMenu) {
+    if (UI::MenuItem(Icons::Star + "Apeiron Galaxy", "", g_UIState.ShowCalendarWindow)) {
+        g_UIState.ShowCalendarWindow = !g_UIState.ShowCalendarWindow;
+        S_ShowCalendarOnStart = g_UIState.ShowCalendarWindow;
+    }
+}
+```
+
+### 22. Cleaning up when removing a feature
 
 Check EVERY `.as` file when removing feature from a multi-file plugin:
 
