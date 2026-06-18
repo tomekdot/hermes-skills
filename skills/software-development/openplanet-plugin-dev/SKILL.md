@@ -10,24 +10,24 @@ metadata:
     tags: [openplanet, trackmania, angelscript, plugin, game-modding]
 ---
 
-# Openplanet Plugin Development
+# 🎮 Openplanet Plugin Development
 
-## Overview
+## 📋 Overview
 
 Openplanet is a plugin/script development platform for Nadeo games (Trackmania 2020, Maniaplanet). Plugins are written in AngelScript (.as), a C++-like scripting language. This skill covers creating folder-based dev plugins, debugging compilation errors, and working around API quirks.
 
-## Full API Documentation
+## 📚 Full API Documentation
 
 The complete, up-to-date Openplanet API reference is available online:
 **https://openplanet.dev/docs**
 
 This includes all namespaces (UI, Time, IO, Net, Json, Math, nvg, etc.), function signatures, enums, and callback documentation. Always check the online docs for the latest API additions and changes.
 
-## Project Layout
+## 📁 Project Layout
 
 Two layouts exist:
 
-### Folder-based (development) — PREFERRED
+### 📂 Folder-based (development) — PREFERRED
 ```
 Openplanet4/Plugins/<plugin-name>/
 ├── info.toml          # Metadata (required)
@@ -45,7 +45,7 @@ All `.as` files in the folder are compiled together as a single module — no ma
 ### Packaged (.op) — distribution
 `.op` files are **ZIP archives**. Do NOT edit them directly — extract, develop as folder, re-zip for release.
 
-## info.toml
+## ⚙️ info.toml
 
 ```toml
 [meta]
@@ -60,7 +60,7 @@ dependencies = []      # Other plugin identifiers
 defines = []           # Preprocessor defines for dev
 ```
 
-## Entry Points (callbacks)
+## 🎯 Entry Points (callbacks)
 
 | Function | When | Yieldable |
 |----------|------|-----------|
@@ -72,7 +72,7 @@ defines = []           # Preprocessor defines for dev
 | `void OnEnabled()` / `void OnDisabled()` | Plugin toggled | No |
 | `void OnDestroyed()` | Plugin unloaded | No |
 
-## Settings
+## 🎚️ Settings
 
 ```angelscript
 [Setting name="Display name" description="Tooltip"]
@@ -85,7 +85,7 @@ int S_Slider = 50;
 string S_InternalData = "";
 ```
 
-## CRITICAL — API Quirks & Pitfalls
+## 🚨 CRITICAL — API Quirks & Pitfalls
 
 ### 1. Time::Info uses PascalCase, NOT lowercase
 
@@ -186,7 +186,7 @@ Time::Info utcInfo = Time::ParseUTC(stamp);       // UTC time
 int64 parsed = Time::ParseFormatString("%Y-%m-%d %H:%M", "2026-05-26 20:00");
 ```
 
-## Debugging Compilation Errors
+## 🐛 Debugging Compilation Errors
 
 1. **Check the log file** — errors appear in `Openplanet/Openplanet.log`
 2. Look for `[ERROR]` lines with your plugin name
@@ -561,7 +561,7 @@ Use `grep -rn "DeletedName" Plugins/<name>/` before deleting to catch all refere
 
 ---
 
-## Openplanet Folder Structure Reference
+## 📂 Openplanet Folder Structure Reference
 
 ### Root layout
 ```
@@ -618,7 +618,7 @@ These are also included in the skill package for offline access.
 | `ui-window-template.as` | 1KB | Boilerplate UI window template |
 
 
-## Verification
+## ✅ Verification
 
 After creating or modifying a plugin:
 
