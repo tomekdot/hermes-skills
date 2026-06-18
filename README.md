@@ -28,6 +28,34 @@ Hermes Agent skills by tomekdot.
 - **Includes**: 248 thumbnails, full pipeline code (sync/votes/report/validate), GAS Web App
 - **Sources**: ManiaPlanet Feedback, Google Sheets (gviz API), ManiaExchange API
 
+### 📝 Plan Mode
+- **Skill**: `skills/software-development/plan/`
+- **What**: Write actionable markdown plans to `.hermes/plans/` — bite-sized tasks, paths, code
+
+### ✍️ Writing Plans
+- **Skill**: `skills/software-development/writing-plans/`
+- **What**: Write implementation plans — bite-sized tasks, paths, code
+
+### 🔧 Rename Git Commits
+- **Skill**: `skills/software-development/rename-git-commits/`
+- **What**: Rewrite commit messages in git history — non-interactive methods for Windows/MSYS
+
+### 🏗️ Software Engineering
+- **Skill**: `skills/software-development/software-engineering/`
+- **What**: Software engineering practices — TDD, code review, debugging, clean code
+
+### 🤖 Subagent-Driven Development
+- **Skill**: `skills/software-development/subagent-driven-development/`
+- **What**: Execute plans via delegate_task subagents — 2-stage review, context budget discipline
+
+### 📚 Personal Skill Library Management
+- **Skill**: `skills/software-development/personal-skill-library-management/`
+- **What**: Maintain a personal Hermes skill library — structure, sync, standards
+
+### 🤖 Hermes Agent Guide
+- **Skill**: `skills/software-development/hermes-agent-guide/`
+- **What**: Complete Hermes Agent reference — setup, CLI, config, skills, plugins
+
 ### 🔧 GitHub Workflow
 - **Skill**: `skills/devops/github/github-workflow/`
 - **What**: Complete GitHub workflow — auth, repos, issues, PRs, code review, CI/CD using gh CLI
@@ -39,10 +67,6 @@ Hermes Agent skills by tomekdot.
 ### 🔍 GitHub Actions Node 24 Scanner
 - **Skill**: `skills/devops/github-actions-node24-scanner/`
 - **What**: Scan all public GitHub repos for deprecated Node.js 20 Actions and upgrade to 24
-
-### 🔗 Webhook Subscriptions
-- **Skill**: `skills/devops/webhook-subscriptions/`
-- **What**: Webhook subscriptions for event-driven agent runs
 
 ## 📄 License
 
@@ -65,4 +89,4 @@ Contributions are welcome!
 
 ## 🏷️ Tags
 
-`hermes-skill` `angular` `openplanet` `trackmania` `maniaplanet` `angelscript` `pursuit-maps` `dataset` `docker` `nginx`
+`hermes-skill` `angular` `openplanet` `trackmania` `maniaplanet` `angelscript` `pursuit-maps` `dataset` `docker` `nginx` `pyplanet` `github` `devops` `planning` `subagent`
