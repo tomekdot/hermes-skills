@@ -1,92 +1,80 @@
 ---
 name: pursuit-maps
-description: "TrackMania Pursuit maps from ManiaPlanet Feedback display/106 - Season 1 Episode 1 by Dommy. 248 map thumbnails with UIDs."
-version: 1.1.0
+description: "TrackMania Pursuit maps pipeline: fetches 249 maps from ManiaPlanet Feedback (star ratings, vote counts), enriches with ManiaExchange data, syncs to Google Sheets via GAS Web App. Daily automated pipeline with vote tracking."
+version: 2.0.0
 author: OWL
-tags: ["trackmania", "pursuit", "maniaplanet", "maps", "thumbnails"]
+tags: ["trackmania", "pursuit", "maniaplanet", "maps", "thumbnails", "gas", "google-sheets", "pipeline"]
 ---
 
-# Pursuit Maps - ManiaPlanet Feedback S1 E1
+# Pursuit Maps Pipeline
 
-Thumbnails and UID data for 249 maps from ManiaPlanet Feedback display/106 (TrackMania² Pursuit Multi-environment Season 1 Episode 1 by Dommy).
+Automated pipeline: ManiaPlanet Feedback + ManiaExchange → Google Sheets.
 
-## Folder Structure
+## Quick Reference
+
+**Main script**: `pipeline/pipeline.py` in repo `tomekdot/pursuit-maps`
+
+```bash
+python3 pipeline/pipeline.py                    # full pipeline
+python3 pipeline/pipeline.py --action sync      # fetch + push new maps
+python3 pipeline/pipeline.py --action votes     # update vote columns
+python3 pipeline/pipeline.py --action report    # vote change report
+python3 pipeline/pipeline.py --action validate  # data quality checks
+```
+
+**GAS Web App**: `pipeline/gas-webapp/PursuitMaps.gs` — deploy once in Sheet (Extensions → Apps Script → Deploy as Web App). Accepts HTTP POST from pipeline.
+
+## Repo Structure
 
 ```
 pursuit-maps/
-├── SKILL.md
-└── assets/
-    └── thumbnails/
-        └── {UID}.jpg   (248 files, one per map)
+├── pipeline/pipeline.py      ← Main entry point (all actions)
+├── pipeline/gas_runner.py    ← HTTP client for GAS
+├── pipeline/gas-webapp/      ← GAS script (deploy in Sheet)
+├── data/                     ← Cache, history, reports
+├── docs/                     ← Setup guides
+├── scripts/legacy/           ← Old scripts (reference)
+└── .github/workflows/pipeline.yml  ← Daily 5:00 UTC
 ```
 
-## Data Sources
+## Sheet Columns
 
-- **Feedback page**: https://feedback.prod.live.maniaplanet.com/votes/display/106
-- **Google Sheets**: https://docs.google.com/spreadsheets/d/1PwcF1PXHnYhyE23-VPqHewkD_lcNMPIg7LXDN_NaVHQ/edit#gid=763170857
+| Col | Name | Source |
+|-----|------|--------|
+| A | # | Auto |
+| B | Map name | Feedback |
+| C | Author login | ManiaExchange |
+| D | Environment | ManiaExchange |
+| E | Uploaded at | ManiaExchange |
+| F | UID | Feedback |
+| G | TrackMania\MapType | ManiaExchange |
+| H | Notes | Manual |
+| I | YN Rating | Feedback YES/NO section |
+| J | YN Votes | Feedback YES/NO section |
+| K | 5-Star Avg | Feedback 5 STARS section |
+| L | 5-Star Total | Feedback 5 STARS section |
 
-## File Naming Convention
+## Key API Endpoints
 
-Each thumbnail is named `{UID}.jpg` where UID is the unique ManiaPlanet map identifier.
+- Feedback page: `feedback.prod.live.maniaplanet.com/votes/display/106`
+- MX API: `tm.mania.exchange/api/maps/get_map_info/id/{UID}` (V1, accepts UID)
+- Sheet read: gviz API (no auth for public sheets)
+- Sheet write: GAS Web App (deployed once per user)
 
-Example: `pdHcfgrPuzYKYG84amT6KREpj97.jpg` → `[Pursuit] - Third Contribution`
+## Parsing Notes
 
-## Map URL Patterns
+Feed page has TWO separate star rating sections per map card:
+1. **YES/NO** section: `<h6>YES/NO</h6>` → gold span → `rating (count)` 
+2. **5 STARS** section: `<h6>5 STARS</h6>` → gold span → `rating (count)`
 
-- Thumbnail: `https://files-v4.live.maniaplanet.com/maps/{hash}/{UID}.jpg`
-- Feedback: `https://feedback.prod.live.maniaplanet.com/votes/display/106`
+Parse independently. ~80% of maps have 5-Star data but no YES/NO votes.
 
-Note: The `{hash}` in the thumbnail URL varies per map and is NOT the same as the UID. The UID is unique per map.
-
-## Missing File
-
-1 file could not be downloaded (HTTP 403):
-- `xmPnj0qC1jmfw64X53VjWNXfpj.jpg` (Liminal Maze Tower by piotrunio)
-
-## Scripts
-
-| Script | Description |
-|--------|-------------|
-| `scripts/download_thumbnails.py` | Download map thumbnails from ManiaPlanet |
-| `scripts/read_sheets.py` | Read Google Sheets via gviz API |
-| `scripts/pursuit_maps_generator.py` | Generate markdown table from Sheets data |
-| `scripts/enrich_with_mx.py` | Enrich CSV with ManiaExchange API data |
-
-### pursuit_maps_generator.py
-Generates a complete markdown document from Google Sheets data:
-- Summary stats by environment and map type
-- Full map table with all metadata
-- Author statistics
-- UID reference list
-
-```bash
-python3 scripts/pursuit_maps_generator.py --with-thumbnails assets/thumbnails
-```
-
-### enrich_with_mx.py
-Queries ManiaExchange API (`https://tm.mania.exchange/api/maps/get_map_info/id/{UID}`)
-for each map in the CSV and adds 17 new columns:
-- MX TrackID, MX Name, MX GbxMapName, MX AuthorLogin
-- MX MapType, MX TitlePack, MX EnvironmentName, MX VehicleName
-- MX DifficultyName, MX LengthName, MX UploadedAt, MX UpdatedAt
-- MX Downloadable, MX Comments, MX AwardCount
-- MX HasThumbnail, MX HasScreenshot
-
-```bash
-python3 scripts/enrich_with_mx.py --dry-run          # preview
-python3 scripts/enrich_with_mx.py                     # writes to CSV (creates .bak)
-python3 scripts/enrich_with_mx.py --delay 0.5         # slower rate limit
-```
-
-## Related CSV Data
-
-- `C:\Users\tomekdot\maniaplanet_feedback_106_with_uid.csv` - 249 maps with 25 columns (8 original + 17 MX)
-- `C:\Users\tomekdot\pursuit_channels_new_full_data.json` - Google Sheets raw data
-- `C:\Users\tomekdot\pursuit_maps_table.md` - Generated markdown table
+Split HTML at each `<img src="...maps/...">` to isolate per-map cards.
 
 ## Stats
 
-- Total maps: 249
-- Thumbnails downloaded: 248
-- Environments: Valley, Canyon, Stadium, Lagoon
-- Map types: PursuitArena, GoalHuntArena, HuntersArena
+- 249 maps total
+- ~75% indexed on ManiaExchange
+- 248 thumbnails available (1 HTTP 403)
+- 4 environments: Valley, Canyon, Stadium, Lagoon
+- 3 map types: PursuitArena (~80%), GoalHuntArena (~15%), HuntersArena (~5%)
