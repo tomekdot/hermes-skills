@@ -202,6 +202,10 @@ See `references/cherry-pitfalls.md` for detailed pitfalls including:
 - git filter-branch is unreliable on Windows (timeouts, corrupted history)
 - GIT_SEQUENCE_EDITOR with sed may silently fail on MSYS
 - git rebase -i --exec with commit --amend doesn't work
+- **Always copy skills from AppData to repo BEFORE rewriting history** — force push can delete files not tracked by git
+- **Verify commit count BEFORE force push** — `git log --oneline | wc -l` must match backup
+- **webhook-subscriptions and other platform skills are NOT yours** — don't add them to your repo
+- **When cherry-picking many commits, conflicts cascade** — use `git checkout --theirs` for add/add conflicts, then `git add -A && git commit`
 
 ---
 

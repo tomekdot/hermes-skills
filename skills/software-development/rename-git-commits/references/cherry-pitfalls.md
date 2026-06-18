@@ -129,3 +129,19 @@ After cherry-picking from a reset point, every commit gets a new SHA — even th
 ## Performance note
 
 For repos with many commits (>20), cherry-pick all of them one by one is slow but reliable on Windows/MSYS (no PTY needed). Expect ~1-2 seconds per commit.
+
+## ⚠️ Copy skills from AppData BEFORE rewriting history
+
+Before doing any git rewrite (cherry-pick, rebase, filter-branch), make sure ALL skills are committed to git. Force push can delete files that exist in AppData but are not tracked by git.
+
+**Always:**
+1. Copy new skills from `AppData\Local\hermes\skills\` to repo first
+2. `git add -A && git commit` to track them
+3. THEN do the history rewrite
+4. Verify all files still exist after rewrite
+
+## ⚠️ Don't add platform skills to your repo
+
+Skills like `webhook-subscriptions`, `hermes-agent-guide`, `plan`, `software-engineering`, `subagent-driven-development`, `writing-plans` are Hermes Agent platform skills — NOT yours. Don't copy them from AppData to your repo. Only add skills you created yourself.
+
+**How to tell:** If the skill's `author` field is not `tomekdot` or the skill references `hermes` CLI commands (like `hermes webhook`), it's a platform skill.
