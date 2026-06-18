@@ -18,6 +18,10 @@ Hermes Agent skills by tomekdot.
 - **What**: Create, debug, structure Openplanet AngelScript plugins for Trackmania/Maniaplanet
 - **Also on**: [ClawHub](https://clawhub.ai/tomekdot/openplanet-plugin-dev)
 
+### 🎮 PyPlanet Plugin Development
+- **Skill**: `skills/software-development/pyplanet/`
+- **What**: PyPlanet plugin development, GitHub installer, and ClanSpirit plugin
+
 ### 🗺️ Pursuit Maps Pipeline
 - **Skill**: `skills/software-development/pursuit-maps/`
 - **What**: Automated pipeline — 249 maps from ManiaPlanet Feedback + ManiaExchange → Google Sheets
