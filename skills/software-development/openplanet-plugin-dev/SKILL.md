@@ -1,7 +1,7 @@
 ---
 name: openplanet-plugin-dev
 description: Create, debug, and structure Openplanet AngelScript plugins for Trackmania/Maniaplanet. Comprehensive guide with API quirks, AngelScript language pitfalls, performance patterns, and proven templates. Use when building, debugging, or reviewing Openplanet plugins.
-version: 2.1.0
+version: 2.2.0
 metadata:
   openclaw:
     tags: [openplanet, trackmania, angelscript, plugin, game-modding]
@@ -862,4 +862,4 @@ Hermes skills repo reference files: 📎 https://github.com/tomekdot/hermes-skil
 
 ---
 
-*Last updated: 2026-06-12. Covers AngelScript build as of OpenplanetNext 2026.*
+*Last updated: 2026-06-12. Covers AngelScript build as of OpenplanetNext 2026 and Openplanet 4 (Maniaplanet).*
