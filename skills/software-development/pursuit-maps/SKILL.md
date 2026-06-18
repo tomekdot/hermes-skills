@@ -1,7 +1,7 @@
 ---
 name: pursuit-maps
 description: "TrackMania Pursuit maps from ManiaPlanet Feedback display/106 - Season 1 Episode 1 by Dommy. 248 map thumbnails with UIDs."
-version: 1.0.0
+version: 1.1.0
 author: OWL
 tags: ["trackmania", "pursuit", "maniaplanet", "maps", "thumbnails"]
 ---
@@ -43,11 +43,46 @@ Note: The `{hash}` in the thumbnail URL varies per map and is NOT the same as th
 1 file could not be downloaded (HTTP 403):
 - `xmPnj0qC1jmfw64X53VjWNXfpj.jpg` (Liminal Maze Tower by piotrunio)
 
+## Scripts
+
+| Script | Description |
+|--------|-------------|
+| `scripts/download_thumbnails.py` | Download map thumbnails from ManiaPlanet |
+| `scripts/read_sheets.py` | Read Google Sheets via gviz API |
+| `scripts/pursuit_maps_generator.py` | Generate markdown table from Sheets data |
+| `scripts/enrich_with_mx.py` | Enrich CSV with ManiaExchange API data |
+
+### pursuit_maps_generator.py
+Generates a complete markdown document from Google Sheets data:
+- Summary stats by environment and map type
+- Full map table with all metadata
+- Author statistics
+- UID reference list
+
+```bash
+python3 scripts/pursuit_maps_generator.py --with-thumbnails assets/thumbnails
+```
+
+### enrich_with_mx.py
+Queries ManiaExchange API (`https://tm.mania.exchange/api/maps/get_map_info/id/{UID}`)
+for each map in the CSV and adds 17 new columns:
+- MX TrackID, MX Name, MX GbxMapName, MX AuthorLogin
+- MX MapType, MX TitlePack, MX EnvironmentName, MX VehicleName
+- MX DifficultyName, MX LengthName, MX UploadedAt, MX UpdatedAt
+- MX Downloadable, MX Comments, MX AwardCount
+- MX HasThumbnail, MX HasScreenshot
+
+```bash
+python3 scripts/enrich_with_mx.py --dry-run          # preview
+python3 scripts/enrich_with_mx.py                     # writes to CSV (creates .bak)
+python3 scripts/enrich_with_mx.py --delay 0.5         # slower rate limit
+```
+
 ## Related CSV Data
 
-See the following files for complete map data with UIDs:
-- `C:\Users\tomekdot\pursuit_channels_new_full_data.json` - Google Sheets data (125 rows, columns A-H)
-- `C:\Users\tomekdot\pursuit_channels_new_data.tsv` - Sheet data + feedback matching
+- `C:\Users\tomekdot\maniaplanet_feedback_106_with_uid.csv` - 249 maps with 25 columns (8 original + 17 MX)
+- `C:\Users\tomekdot\pursuit_channels_new_full_data.json` - Google Sheets raw data
+- `C:\Users\tomekdot\pursuit_maps_table.md` - Generated markdown table
 
 ## Stats
 
