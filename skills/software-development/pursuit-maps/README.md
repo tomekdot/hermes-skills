@@ -1,155 +1,113 @@
-# Pursuit Maps - TrackMania ManiaPlanet Feedback S1 E1
+# Pursuit Maps Pipeline
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+Automated pipeline that collects map data from ManiaPlanet Feedback + ManiaExchange
+and syncs it to Google Sheets via GAS Web App.
 
-Complete dataset of 249 maps from **TrackMania² Pursuit Multi-environment (Season 1 Episode 1 by Dommy)** sourced from ManiaPlanet Feedback.
+**Repo**: https://github.com/tomekdot/pursuit-maps
 
-## What's Included
+## What It Does
 
-| Content | Count | Description |
-|---------|-------|-------------|
-| Thumbnails | 248 JPG files | Map preview images (~43-60KB each) |
-| CSV Data | 2 files | Full map metadata with UIDs, names, authors, URLs |
-| Scripts | Python + JS | Extraction and download automation |
-| Google Sheets | 125 rows | "Pursuit Channels New" tab from public sheet |
+1. **Fetches 249 maps** from ManiaPlanet Feedback with:
+   - YES/NO Rating (separate from 5-Star!)
+   - 5-Star Average + total vote count
+   - Map name, UID, thumbnail hash
 
-## Quick Start
+2. **Enriches with ManiaExchange API** for Author, Environment, MapType
 
-### CSV Data
+3. **Pushes to Google Sheets** via GAS Web App (zero credentials needed)
+
+4. **Tracks vote changes** daily at 5:00 UTC
+
+## Repo Structure
+
+```
+pursuit-maps/
+├── pipeline/
+│   ├── pipeline.py              ← Main script (sync + votes + report + validate)
+│   ├── gas_runner.py            ← HTTP client for GAS Web App
+│   ├── all_maps.tsv             ← All 249 maps with vote data
+│   ├── gas_sync_payload.json    ← GAS sync payload
+│   └── gas-webapp/
+│       ├── PursuitMaps.gs       ← Deploy once in Sheet
+│       └── README.md            ← GAS setup guide
+├── data/
+│   ├── feedback_full.json       ← Cached feedback data
+│   ├── vote_history.json        ← Vote snapshots (90 days)
+│   └── vote_report.md           ← Generated vote change report
+├── docs/
+│   ├── GOOGLE_SHEETS_SETUP.md
+│   └── SHEETS_WRITE_SETUP.md
+├── scripts/legacy/              ← Old scripts (reference only)
+├── assets/thumbnails/           ← 248 map thumbnail JPGs
+└── .github/workflows/
+    └── pipeline.yml             ← Daily 5:00 UTC auto-sync
+```
+
+## Usage
 
 ```bash
-# Full dataset with UIDs and all URLs
-cat data/maniaplanet_feedback_106_with_uid.csv | head -5
+# Full pipeline (sync + votes + report)
+python3 pipeline/pipeline.py
 
-# Columns: Lp, UID, Map name, Hash, Thumbnail URL, Map URL (tm.mania.exchange), Author URL, Feedback URL
+# Individual actions
+python3 pipeline/pipeline.py --action sync       # Fetch + push new maps
+python3 pipeline/pipeline.py --action votes      # Update vote columns
+python3 pipeline/pipeline.py --action report     # Vote change report
+python3 pipeline/pipeline.py --action validate   # Data quality checks
 ```
 
-### Thumbnails
+Requires `GAS_WEBAPP_URL` env var or `pipeline/gas_url.txt`.
 
-```bash
-# Each thumbnail named by UID
-ls assets/thumbnails/ | head -10
-# o7dl56rYEVeuNyLkvJgjgkvRIIj.jpg
-# owfIKm3fjLoU7GL_cRqLsS9noD6.jpg
-# ...
-```
+## Sheet Columns
 
-### Fetch a thumbnail by UID
+| Col | Name | Source |
+|-----|------|--------|
+| A | # | Auto |
+| B | Map name | Feedback |
+| C | Author login | ManiaExchange |
+| D | Environment | ManiaExchange |
+| E | Uploaded at | ManiaExchange |
+| F | UID | Feedback |
+| G | MapType | ManiaExchange |
+| H | Notes | Manual |
+| I | YN Rating | Feedback (YES/NO section) |
+| J | YN Votes | Feedback (YES/NO section) |
+| K | 5-Star Avg | Feedback (5 STARS section) |
+| L | 5-Star Total | Feedback (5 STARS section) |
 
-```bash
-# Direct URL (hash varies per map - see CSV for exact URL)
-curl -o map.jpg "https://files-v4.live.maniaplanet.com/maps/{hash}/{UID}.jpg"
-```
+## Key APIs
 
-## Map URL Patterns
+- **Feedback page**: `feedback.prod.live.maniaplanet.com/votes/display/106`
+- **MX API**: `tm.mania.exchange/api/maps/get_map_info/id/{UID}` (V1, accepts UID)
+- **Sheet read**: gviz API (no auth for public sheets)
+- **Sheet write**: GAS Web App (deployed once per user)
 
-| Platform | URL Pattern |
-|----------|-------------|
-| Thumbnail | `https://files-v4.live.maniaplanet.com/maps/{hash}/{UID}.jpg` |
-| ManiaExchange Map | `https://tm.mania.exchange/mapsearch?query={encoded_name}` |
-| ManiaExchange Author | `https://tm.mania.exchange/usersearch?query={author}` |
-| ManiaPlanet Feedback | `https://feedback.prod.live.maniaplanet.com/votes/display/106` |
-| Google Sheets | `https://docs.google.com/spreadsheets/d/1PwcF1PXHnYhyE23-VPqHewkD_lcNMPIg7LXDN_NaVHQ/edit#gid=763170857` |
+## Writing to Sheet
 
-## Data Sources
+The **GAS Web App** approach requires zero credentials:
 
-1. **ManiaPlanet Feedback** - `https://feedback.prod.live.maniaplanet.com/votes/display/106`
-   - Season 1 Episode 1 by Dommy
-   - 249 maps with thumbnails, YES/NO votes, 5-star ratings
-   - UID extracted from `<img src>` via JavaScript DOM
+1. Deploy `pipeline/gas-webapp/PursuitMaps.gs` once in Sheet (Extensions → Apps Script → Deploy as Web App)
+2. Save the Web App URL as `GAS_WEBAPP_URL` env var or `pipeline/gas_url.txt`
+3. Pipeline sends HTTP POST with JSON → GAS writes to Sheet on your behalf
 
-2. **Google Sheets (Public)** - "Pursuit Channels New" tab (GID 763170857)
-   - 125 maps with metadata: #, Map name, Author, Environment, Uploaded at, UID, MapType, Notes
-   - Read via Google gviz API (no auth required for public sheets)
+## Parsing Notes
 
-3. **tm.mania.exchange** - Map and author links verified working
-   - `https://tm.mania.exchange/mapshow/{ID}` for direct map pages
-   - `https://tm.mania.exchange/usershow/{ID}` for author profiles
+The Feed page has **two separate** star rating sections per map card:
+- `<h6>YES/NO</h6>` → gold span → `rating (count)` 
+- `<h6>5 STARS</h6>` → gold span → `rating (count)`
 
-## Scripts
+These must be parsed independently. ~80% of maps have 5-Star data but no YES/NO votes.
 
-### Extract UIDs from Feedback Page (JavaScript)
+HTML parsing: split at each `<img src="...maps/...">` to isolate per-map cards, then split each card by YES/NO vs 5 STARS sections.
 
-Run in browser console on `https://feedback.prod.live.maniaplanet.com/votes/display/106`:
+## Stats
 
-```javascript
-(() => {
-  const imgs = document.querySelectorAll('img');
-  const maps = [];
-  const h6s = document.querySelectorAll('h6');
-  const names = [];
-  h6s.forEach(h => {
-    const t = h.textContent.trim();
-    if (t && t !== 'YES/NO' && t !== '5 STARS') names.push(t);
-  });
-  imgs.forEach((img, i) => {
-    const src = img.src || '';
-    const m = src.match(/\/maps\/([a-f0-9]+)\/([a-zA-Z0-9_\-]+)\.(jpg|png)/);
-    if (m) maps.push({ hash: m[1], uid: m[2], name: names[i] || '' });
-  });
-  return JSON.stringify(maps);
-})()
-```
-
-### Download Thumbnails (Python)
-
-```python
-import urllib.request, os
-
-maps = [("hash1", "uid1"), ("hash2", "uid2")]  # from extraction
-headers = {'User-Agent': 'Mozilla/5.0'}
-for hash_val, uid in maps:
-    url = f"https://files-v4.live.maniaplanet.com/maps/{hash_val}/{uid}.jpg"
-    req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req, timeout=10) as resp:
-        with open(f"thumbnails/{uid}.jpg", 'wb') as f:
-            f.write(resp.read())
-```
-
-### Read Google Sheets via gviz API (Python)
-
-```python
-import urllib.request, json
-
-url = "https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?gid={GID}&tqx=out:json&headers=1"
-req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
-resp = urllib.request.urlopen(req, timeout=15)
-raw = resp.read().decode('utf-8')
-json_str = raw.split('(', 1)[1].rsplit(');', 1)[0]
-data = json.loads(json_str)
-for row in data['table']['rows']:
-    cells = row['c']
-    num = cells[0].get('v', '')
-    name = cells[1].get('v', '')
-    author = cells[2].get('v', '')
-    uid = cells[5].get('v', '')
-    print(f"{num}: {name} by {author} (UID: {uid})")
-```
-
-## Map Types
-
-| Type | Count (approx) |
-|------|---------------|
-| TrackMania\PursuitArena | ~80% |
-| TrackMania\GoalHuntArena | ~15% |
-| TrackMania\HuntersArena | ~5% |
-
-## Environments
-
-Valley, Canyon, Stadium, Lagoon
-
-## Notable Findings
-
-- Google Sheets row 126 has empty Column B → filled with `[Pursuit] - Third Contribution` from feedback data
-- 2 maps marked "missing link" in Sheets: "Pursuit - Surrounded", "Pursuit - Volley"
-- 12 maps with notes (incorrect OffZone, black thumbnail, outdated mode, etc.)
-- Last-Modified for all thumbnails: 2024-02-12 (batch upload date)
-- 1 thumbnail unavailable (HTTP 403): Liminal Maze Tower by piotrunio
-
-## Legal
-
-Map data and thumbnails belong to their respective authors and Nadeo/ManiaPlanet. This dataset is for research and educational purposes.
+- 249 maps total
+- ~75% indexed on ManiaExchange
+- 248 thumbnails available
+- 4 environments: Valley, Canyon, Stadium, Lagoon
+- 3 map types: PursuitArena (~80%), GoalHuntArena (~15%), HuntersArena (~5%)
 
 ## License
 
-MIT License - see [LICENSE](LICENSE)
+MIT
