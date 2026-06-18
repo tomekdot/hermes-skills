@@ -16,8 +16,9 @@ Automated pipeline: ManiaPlanet Feedback + ManiaExchange → Google Sheets.
 
 ```bash
 python3 pipeline/pipeline.py                    # full pipeline
-python3 pipeline/pipeline.py --action sync      # fetch + push new maps
-python3 pipeline/pipeline.py --action votes     # update vote columns
+python3 pipeline/pipeline.py --action sync      # fetch + push new maps + auto-sort
+python3 pipeline/pipeline.py --action votes     # update vote columns only
+python3 pipeline/pipeline.py --action sort      # sort sheet by Uploaded At
 python3 pipeline/pipeline.py --action report    # vote change report
 python3 pipeline/pipeline.py --action validate  # data quality checks
 ```
@@ -45,7 +46,14 @@ pursuit-maps/
 | B | Map name | Feedback |
 | C | Author login | ManiaExchange |
 | D | Environment | ManiaExchange |
-| E | Uploaded at | ManiaExchange |
+| E | Uploaded at | ManiaExchange (ISO 8601 → normalized to YYYY-MM-DD HH:MM:SS) |
+
+## Sorting
+
+Sheet is auto-sorted by **Uploaded At (column E) descending** after every sync (newest maps on top).
+- Column E is formatted as Date (`yyyy-mm-dd hh:mm:ss`) so Sheets treats it as proper date
+- Manual sort: `python3 pipeline/pipeline.py --action sort` or POST `{"action":"sort"}` to GAS
+- Sort function handles both Date objects and string dates from MX API
 | F | UID | Feedback |
 | G | TrackMania\MapType | ManiaExchange |
 | H | Notes | Manual |
