@@ -28,6 +28,12 @@ Hermes Agent skills by tomekdot.
 - **Skill**: `skills/software-development/rename-git-commits/`
 - **What**: Rewrite commit messages in git history — non-interactive methods for Windows/MSYS
 
+## 📦 Gaming
+
+### 🎮 ManiaPlanet Items Organizer
+- **Skill**: `skills/gaming/maniaplanet-items-organizer/`
+- **What**: Organize ManiaPlanet/TM2020 Item Sets by size tier (Large/Medium/Small) and thematic category (Stadium, Terrain, Decoration, Gameplay, etc.)
+
 ## 📦 DevOps
 
 ### 🚀 GitHub Pages Deploy
@@ -48,4 +54,4 @@ Contributions are welcome! Fork, branch, commit, push, PR.
 
 ## 🏷️ Tags
 
-`hermes-skill` `angular` `openplanet` `trackmania` `maniaplanet` `angelscript` `pursuit-maps` `pyplanet` `github` `devops`
+`hermes-skill` `angular` `openplanet` `trackmania` `maniaplanet` `angelscript` `pursuit-maps` `pyplanet` `github` `devops` `file-organizer`
