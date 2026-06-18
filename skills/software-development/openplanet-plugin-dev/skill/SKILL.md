@@ -203,7 +203,7 @@ int64 parsed = Time::ParseFormatString("%Y-%m-%d %H:%M", "2026-05-26 20:00");
 | `Expression must be of boolean type, instead found 'string'` | Using InputText return in `if()` | Call InputText separately, check `bool&out changed` after |
 | `No matching function 'UI::SetNextWindowPos'` | Wrong param types | Pass int coords: `int(x), int(y)` |
 
-### Reference files
+**Reference files**
 
 This skill ships with the official Openplanet API documentation as reference files. Load any of them when you need API details:
 
@@ -502,7 +502,52 @@ if (idx < len) { ... }
 
 Common places this appears: comparing loop counters against `array.Length` (which returns `uint`), or storing `uint` results in `int` variables. Fix by explicitly casting one side to match the other.
 
-### 18. Cleaning up when removing a feature
+### 19. Preprocessor Directives
+
+```angelscript
+#if TMNEXT
+    // Trackmania (2020) only
+#elif MP4
+    // Maniaplanet 4 only
+#elif TURBO
+    // Trackmania Turbo
+#elif UNITED
+    // Trackmania United
+#endif
+
+#if WINDOWS
+    // Windows-specific code
+#elif LINUX
+    // Linux-specific code
+#endif
+```
+
+### 20. Icons
+
+Use `Icons::` namespace constants. Available icon families include FontAwesome (`Icons::Clock`, `Icons::Car`, `Icons::Info`, `Icons::Calendar`, `Icons::QuestionCircle`, `Icons::Crosshairs`, `Icons::Exclamation`, etc.) and Kenney (`Icons::Kenney::Plus`, `Icons::Kenney::Info`, etc.). Full list in the Starter API docs.
+
+### 21. Per-window main-menu visibility
+
+Use when a plugin exposes multiple windows from one menu and some should be hidden by default.
+```angelscript
+[Setting category="General" name="Show Calendar in Main Menu"]
+bool S_ShowCalendarInMainMenu = true;
+
+[Setting category="General" name="Show Player Profile in Main Menu"]
+bool S_ShowPlayerProfileInMainMenu = true;
+```
+
+In `RenderMenuMain()` guard each item independently:
+```angelscript
+if (S_ShowCalendarInMainMenu) {
+    if (UI::MenuItem(Icons::Star + "Apeiron Galaxy", "", g_UIState.ShowCalendarWindow)) {
+        g_UIState.ShowCalendarWindow = !g_UIState.ShowCalendarWindow;
+        S_ShowCalendarOnStart = g_UIState.ShowCalendarWindow;
+    }
+}
+```
+
+### 22. Cleaning up when removing a feature
 
 Check EVERY `.as` file when removing feature from a multi-file plugin:
 
@@ -556,6 +601,9 @@ imports = [ "Dialogs.as", "Patch.as" ]
 
 ### Reference files
 
+Full list of these reference files with API details, patterns, and debugging tips you can find in the website on: https://github.com/tomekdot/hermes-skills/tree/master/skills/software-development/openplanet-plugin-dev/references
+These are also included in the skill package for offline access.
+
 | File | Size | Contents |
 |------|------|----------|
 | `OpenPlanet-Global-API.md` | 73KB | Full global API ref (Time, UI, nvg, Net, IO) |
@@ -563,3 +611,19 @@ imports = [ "Dialogs.as", "Patch.as" ]
 | `OpenPlanet-Basic-API.md` | 42KB | Tutorials: NanoVG, ImGui, shapes, colors |
 | `Openplanet-Changelog-API.md` | 16KB | Version history |
 | `plugin-skeleton.as` | 1.3KB | Minimal plugin template |
+| `info-toml-reference.md` | 4KB | Full info.toml field reference |
+| `time-api.md` | 2KB | Time API quick reference (Parse, FormatString, weekday) |
+| `maniaplanet-feedback-extraction.md` | 3KB | Parsing ManiaPlanet Feedback HTML (ratings, vote counts) |
+| `ui-window-template.as` | 1KB | Boilerplate UI window template |
+
+
+## Verification
+
+After creating or modifying a plugin:
+
+1. Restart Trackmania/Openplanet (or disable/re-enable the plugin in settings)
+2. Check Openplanet overlay menu for the plugin's menu item
+3. Check `Openplanet.log` for any compilation errors (the log includes line numbers)
+4. Settings appear under Openplanet Settings → plugin name
+5. For UI changes: toggle the window open/close to verify rendering
+
