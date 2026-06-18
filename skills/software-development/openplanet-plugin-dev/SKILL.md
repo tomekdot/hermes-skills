@@ -601,7 +601,8 @@ imports = [ "Dialogs.as", "Patch.as" ]
 
 ### Reference files
 
-Full list of these reference files with API details, patterns, and debugging tips you can find in the website on: https://github.com/tomekdot/hermes-skills/tree/main/skills/gaming/openplanet-plugin-dev/references
+Full list of reference files with API details, patterns, and debugging tips:
+https://github.com/tomekdot/hermes-skills/tree/main/skills/software-development/openplanet-plugin-dev/references
 These are also included in the skill package for offline access.
 
 | File | Size | Contents |
