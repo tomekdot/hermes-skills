@@ -1,0 +1,11 @@
+# Local data files (not part of repo)
+*.tsv
+*.csv
+*.json
+!skill_info.json
+!scripts/
+
+# Local analysis files
+pursuit_channels_new_*
+pursuit-maps-final.txt
+pursuit_channels_new_final.txt

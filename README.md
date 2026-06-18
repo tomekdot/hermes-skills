@@ -2,47 +2,22 @@
 
 Hermes Agent skills by tomekdot.
 
-## 🚀 OpenPlanet Plugin Development
+## Skills
 
-This repository contains the `openplanet-plugin-dev` skill for creating, debugging, and structuring Openplanet AngelScript plugins for Trackmania and Maniaplanet.
+### 🚀 OpenPlanet Plugin Development
+- **Skill**: `skills/software-development/openplanet-plugin-dev/`
+- **What**: Create, debug, structure Openplanet AngelScript plugins for Trackmania/Maniaplanet
+- **Also on**: [ClawHub](https://clawhub.ai/tomekdot/openplanet-plugin-dev)
 
-### 🧩 What you can find here
+### 🗺️ Pursuit Maps Dataset
+- **Skill**: `skills/software-development/pursuit-maps/`
+- **What**: Complete dataset of 249 maps from ManiaPlanet Feedback S1 E1 (by Dommy)
+- **Includes**: 248 thumbnails, CSV with UIDs, Python/JS scripts for extraction
+- **Sources**: ManiaPlanet Feedback, Google Sheets (gviz API), tm.mania.exchange
 
-- guidance for OpenPlanet plugin project structure
-- `info.toml` setup and entry points
-- common UI and time API pitfalls
-- debugging tips for compilation errors
-- reference materials for the OpenPlanet API
-- a minimal plugin skeleton
+## 🏷️ Tags
 
-### 📍 Skill location
-
-- `skills/software-development/openplanet-plugin-dev/SKILL.md`
-
-### 📚 Included references
-
-- `OpenPlanet-Global-API.md`
-- `Openplanet-Starter-API.md`
-- `OpenPlanet-Basic-API.md`
-- `Openplanet-Changelog-API.md`
-- `plugin-skeleton.as`
-
-## 🌐 Plugin listing
-
-You can also find this plugin on ClawHub:
-
-- https://clawhub.ai/tomekdot/openplanet-plugin-dev
-
-## 🏷️ Topics
-
-This repository is tagged around:
-
-- hermes-skill
-- openplanet
-- trackmania
-- maniaplanet
-- angelscript
-- plugin-development
+`hermes-skill` `openplanet` `trackmania` `maniaplanet` `angelscript` `pursuit-maps` `dataset`
 
 ## 📄 License
 
