@@ -2,7 +2,7 @@
 
 Hermes Agent skills by tomekdot.
 
-## 🧩 Skills
+## 📦 Software Development
 
 ### ⚡ Angular Frontend Development
 - **Skill**: `skills/software-development/angular-frontend/`
@@ -27,6 +27,8 @@ Hermes Agent skills by tomekdot.
 ### 🔧 Rename Git Commits
 - **Skill**: `skills/software-development/rename-git-commits/`
 - **What**: Rewrite commit messages in git history — non-interactive methods for Windows/MSYS
+
+## 📦 DevOps
 
 ### 🚀 GitHub Pages Deploy
 - **Skill**: `skills/devops/github-pages-deploy/`
