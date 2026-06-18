@@ -28,6 +28,22 @@ Hermes Agent skills by tomekdot.
 - **Includes**: 248 thumbnails, full pipeline code (sync/votes/report/validate), GAS Web App
 - **Sources**: ManiaPlanet Feedback, Google Sheets (gviz API), ManiaExchange API
 
+### 🔧 GitHub Workflow
+- **Skill**: `skills/devops/github/github-workflow/`
+- **What**: Complete GitHub workflow — auth, repos, issues, PRs, code review, CI/CD using gh CLI
+
+### 🚀 GitHub Pages Deploy
+- **Skill**: `skills/devops/github-pages-deploy/`
+- **What**: Build and deploy React/Vite projects to GitHub Pages — Windows/MSYS compatible
+
+### 🔍 GitHub Actions Node 24 Scanner
+- **Skill**: `skills/devops/github-actions-node24-scanner/`
+- **What**: Scan all public GitHub repos for deprecated Node.js 20 Actions and upgrade to 24
+
+### 🔗 Webhook Subscriptions
+- **Skill**: `skills/devops/webhook-subscriptions/`
+- **What**: Webhook subscriptions for event-driven agent runs
+
 ## 📄 License
 
 This project is licensed under the **MIT License** — see [LICENSE](LICENSE).
