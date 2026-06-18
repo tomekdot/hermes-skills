@@ -1,12 +1,9 @@
 ---
 name: openplanet-plugin-dev
-description: "Create, debug, and structure Openplanet AngelScript plugins for Trackmania/Maniaplanet."
-version: 1.5.0
-author: Hermes Agent
-license: MIT
-platforms: [windows, linux, macos]
+description: Create, debug, and structure Openplanet AngelScript plugins for Trackmania/Maniaplanet. Comprehensive guide with API quirks, AngelScript language pitfalls, performance patterns, and proven templates. Use when building, debugging, or reviewing Openplanet plugins.
+version: 2.1.0
 metadata:
-  hermes:
+  openclaw:
     tags: [openplanet, trackmania, angelscript, plugin, game-modding]
 ---
 
@@ -14,20 +11,37 @@ metadata:
 
 ## 📋 Overview
 
-Openplanet is a plugin/script development platform for Nadeo games (Trackmania 2020, Maniaplanet). Plugins are written in AngelScript (.as), a C++-like scripting language. This skill covers creating folder-based dev plugins, debugging compilation errors, and working around API quirks.
+Openplanet is a plugin/script development platform for Nadeo games (Trackmania 2020, Maniaplanet). Plugins are written in AngelScript (.as), a C++-like scripting language. This skill covers everything from project structure to deep API quirks, performance patterns, and debugging.
 
-## 📚 Full API Documentation
+> 💡 Hard-won lessons from building: Grid Explorer & Tracker, Event Calendar, Vehicle Detector, Apeiron Galaxy, Competition Companion.
 
-The complete, up-to-date Openplanet API reference is available online:
-**https://openplanet.dev/docs**
+---
 
-This includes all namespaces (UI, Time, IO, Net, Json, Math, nvg, etc.), function signatures, enums, and callback documentation. Always check the online docs for the latest API additions and changes.
+## 🏗️ Plugin Architecture (callback-style)
+
+Openplanet plugins can be either:
+
+- **Coroutine-style**: one `void Main()` that loops with `yield()`/`sleep(ms)`
+- **Callback-style**: optional `Main()` + auto-called `void Update(float dt)` and `void Render()`
+
+For most overlays, **callback-style is simpler and lower-latency** — you don't need a `Main()` at all. Just define `Update()` and/or `Render()`.
+
+| Callback | When it fires |
+|---|---|
+| `void Main()` | Plugin load. Yieldable coroutine. |
+| `void Update(float dt)` | Every frame. `dt` is delta in milliseconds. |
+| `void Render()` | Every frame, even with overlay closed. |
+| `void RenderInterface()` | Every frame, only when overlay is open. |
+| `void RenderMenu()` | For Openplanet menu items. |
+| `void OnEnabled/OnDisabled/OnDestroyed()` | Plugin lifecycle. |
+| `void OnSettingsChanged()` | After user changes any `[Setting]` value. |
+
+---
 
 ## 📁 Project Layout
 
-Two layouts exist:
-
 ### 📂 Folder-based (development) — PREFERRED
+
 ```
 Openplanet4/Plugins/<plugin-name>/
 ├── info.toml          # Metadata (required)
@@ -42,35 +56,61 @@ Openplanet4/Plugins/<plugin-name>/
 
 All `.as` files in the folder are compiled together as a single module — no manual imports needed.
 
-### Packaged (.op) — distribution
-`.op` files are **ZIP archives**. Do NOT edit them directly — extract, develop as folder, re-zip for release.
+### 🗂️ Filesystem layout
+
+```
+Openplanet4/
+├── docs/                  # API documentation
+├── Plugins/               # Runtime plugins (what Openplanet loads)
+├── Plugins-Developer/     # Source-of-truth development tree
+├── PluginStorage/         # Per-plugin persistent data (IO::FromStorageFolder)
+└── Openplanet.log         # Debug log — check for compilation errors
+```
+
+When iterating, edit `Plugins-Developer/`, then copy to `Plugins/` for live test.
+
+### 📦 Packaged (.op) — distribution
+
+`.op` files are ZIP archives. Do NOT edit them directly — extract, develop as folder, re-zip for release.
+
+Build:
+
+```bash
+cd path/to/MyPlugin
+7z a MyPlugin.zip info.toml Main.as src/
+ren MyPlugin.zip MyPlugin.op  # rename to .op
+```
+
+---
 
 ## ⚙️ info.toml
 
 ```toml
 [meta]
-name = "My Plugin"
-author = "yourname"
-version = "1.0.0"
-category = "Utility"
+name        = "My Plugin"
+author      = "yourname"
+version     = "1.0.0"
+category    = "Tools"
 
 [script]
-imports = []           # Scripts from Openplanet's Scripts/ folder
-dependencies = []      # Other plugin identifiers
-defines = []           # Preprocessor defines for dev
+timeout         = 0
+dependencies    = [ "VehicleState", "Camera" ]   # namespaces your code uses
+defines         = []                              # Preprocessor defines for dev
 ```
 
-## 🎯 Entry Points (callbacks)
+### 🔗 Common namespaces and which plugin owns them
 
-| Function | When | Yieldable |
-|----------|------|-----------|
-| `void Main()` | Plugin starts | Yes |
-| `void Render()` | Every frame (even with overlay closed) | No |
-| `void RenderInterface()` | Every frame (overlay open only) | No |
-| `void RenderMenu()` | Overlay menu items | No |
-| `void Update(float dt)` | Every frame, dt in ms | No |
-| `void OnEnabled()` / `void OnDisabled()` | Plugin toggled | No |
-| `void OnDestroyed()` | Plugin unloaded | No |
+| Namespace/function | Plugin to add to `dependencies` |
+|---|---|
+| `VehicleState::ViewingPlayerState()` | `VehicleState` |
+| `Camera::ToScreenSpace(vec3) -> vec2` | `Camera` |
+| `Camera::IsBehind(vec3) -> bool` | `Camera` |
+| `NadeoServices::AddAudience(...)` | `NadeoServices` |
+| `Dashboard::ViewingPlayerState()` | `Dashboard` (optional) |
+
+⚠️ **Symptom of missing dependency**: `ERR : No matching symbol 'X::Y'` at compile time.
+
+---
 
 ## 🎚️ Settings
 
@@ -85,26 +125,196 @@ int S_Slider = 50;
 string S_InternalData = "";
 ```
 
+---
+
 ## 🚨 CRITICAL — API Quirks & Pitfalls
 
-### 1. Time::Info uses PascalCase, NOT lowercase
+### 🔤 AngelScript Language Quirks
 
-**Error if wrong:** `'year' is not a member of 'Time::Info'`
+These bite everyone. AngelScript ≠ C++, ≠ C#, ≠ Java.
 
-| Correct | Wrong |
-|---------|-------|
-| `info.Year` | `info.year` |
-| `info.Month` | `info.month` |
-| `info.Day` | `info.day` |
-| `info.Hour` | `info.hour` |
-| `info.Minute` | `info.minute` |
-| `info.Second` | `info.second` |
+#### 🔢 Integer literal suffixes
 
-### 2. Weekday is NOT a member of Time::Info
+`u`, `l`, `ul`, `ull` suffixes are **not supported**.
 
-`info.Weekday` will fail with `'Weekday' is not a member of 'Time::Info'`.
+```angelscript
+// ❌ ERR: Unexpected token '<identifier>'
+const uint64 MASK = 0x3FFFFFFu;
+const int BIG = 1ul;
 
-Use **Zeller's formula** (0=Sun..6=Sat) — inline array init `int t[] = {...}` does NOT work:
+// ✅ OK: bare literal; compiler picks the type
+const uint64 MASK = 0x3FFFFFF;
+const int BIG = 1;
+const uint64 KEY = uint64(0x123);     // explicit cast
+```
+
+#### 📐 `const` on value-type arrays
+
+`const` works for primitives, but **NOT for fixed-size arrays of value types** like `int2[]` or `vec3[]`.
+
+```angelscript
+// ❌ ERR: Expected '('
+const int2 EDGES[12] = { int2(0,1), ... };
+const vec3 CORNERS[8] = { ... };
+
+// ✅ OK: dynamic, no const
+int2[] g_Edges = { int2(0,1), ... };
+```
+
+Also: `const` on `array<T>` is unreliable — keep globals un-`const` and use a `g_` prefix instead.
+
+#### 📏 Fixed-size local arrays
+
+**Local fixed-size arrays are not supported**:
+
+```angelscript
+void Foo() {
+    // ❌ ERR: Expected ';' Instead found identifier 'pts'
+    vec2 pts[8];
+    float depth[8];
+}
+
+// ✅ WORKAROUND: individual variables
+void Foo() {
+    vec2 p0, p1, p2, p3, p4, p5, p6, p7;
+    // compiler will register-allocate them
+}
+```
+
+Or use dynamic arrays:
+
+```angelscript
+vec2[] GetCorners() {
+    vec2[] cs = { vec2(0,0), vec2(1,0), ... };
+    return cs;
+}
+```
+
+#### 🗝️ `dictionary` key types
+
+**Most surprising limitation**: `dictionary` only accepts `const string&in` keys.
+
+```angelscript
+dictionary d;
+
+// ❌ ERR: No matching signatures to 'dictionary::Exists(uint64)'
+d[uint64(123)] = true;
+d[int(456)]    = true;
+
+// ✅ OK: build a string key
+d["123"] = true;
+d[gx + "," + gy + "," + gz] = true;
+```
+
+If you need a fast non-string key, roll your own hash table (parallel arrays + linear scan, or small open-addressed probe table). For most plugins, `string` keys are fine.
+
+#### 🔀 `uint` vs `int` in comparisons
+
+`array<T>.Length` returns `uint`. Comparing a signed `int` loop counter produces a warning treated as error in strict mode:
+
+```angelscript
+// ⚠️ WARN: Signed/Unsigned mismatch
+for (int e = 0; e < arr.Length; e++) { ... }
+
+// ✅ CLEAN:
+for (uint e = 0; e < arr.Length; e++) { ... }
+```
+
+#### 📤 `out` parameter naming
+
+Match the parameter name **exactly**:
+
+```angelscript
+// ❌ ERR: No matching symbol 'outDepth'
+bool Project(vec3 &in p, vec2 &out screen, float &out depth) {
+    outDepth = 0.0f;
+}
+
+// ✅ OK:
+bool Project(vec3 &in p, vec2 &out screen, float &out depth) {
+    depth = 0.0f;
+}
+```
+
+#### 🎨 `int2`, `vec2`, `vec3`, `vec4` constructors
+
+```angelscript
+int2 a = int2(1, 2);
+vec3 v = vec3(1.0f, 2.0f, 3.0f);
+vec4 red = vec4(1.0f, 0.0f, 0.0f, 0.5f);
+```
+
+They are value types — no `@` needed for storage.
+
+#### 🔄 `&inout` on primitive types is NOT allowed
+
+```angelscript
+// ❌ ERR:
+void ConfigRow(const string &in label, bool &inout value) { }
+
+// ✅ OK:
+void ConfigRow(const string &in label, bool value) { }
+```
+
+#### 📊 Array initialization — inline `int t[] = {...}` fails inside functions
+
+```angelscript
+// ❌ ERR inside functions:
+// int t[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};
+
+// ✅ OK: use array<T> with InsertLast
+array<int64> items;
+items.InsertLast(123);
+
+// ✅ OK: pre-allocate at global scope
+int[] g_Array;
+void Main() { g_Array.Resize(16); }
+
+// ✅ OK: inline array init works at global scope
+int[] monthDays = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+```
+
+#### 🔍 `string::IndexOf` — takes exactly ONE parameter
+
+```angelscript
+// ❌ ERR:
+int idx = text.IndexOf("[", startPos);
+
+// ✅ OK:
+int idx = text.IndexOf("[");
+// For offset: use SubStr first
+int idx = text.SubStr(startPos).IndexOf("[");
+```
+
+#### 📝 `Text::Format` takes exactly ONE value argument
+
+```angelscript
+// ❌ ERR:
+Text::Format("%.6f (%.2f%%)", sidereal, sidereal * 100.0);
+
+// ✅ OK:
+Text::Format("%.6f", sidereal) + " (" + Text::Format("%.2f%%", sidereal * 100.0) + ")";
+```
+
+---
+
+### ⏰ Time API Quirks
+
+#### 🅰️ Time::Info uses PascalCase, NOT lowercase
+
+`'year' is not a member of 'Time::Info'`
+
+```angelscript
+// ❌ ERR:
+info.year, info.month, info.day, info.hour, info.minute, info.second
+
+// ✅ OK:
+info.Year, info.Month, info.Day, info.Hour, info.Minute, info.Second
+```
+
+#### 📅 Weekday is NOT a member of Time::Info
+
+`info.Weekday` will fail. Use **Zeller's formula** (0=Sun..6=Sat):
 
 ```angelscript
 int GetDayOfWeek(int y, int m, int d) {
@@ -116,223 +326,212 @@ int GetDayOfWeek(int y, int m, int d) {
 }
 ```
 
-For converting from Unix timestamp directly:
-```angelscript
-int GetWeekdayFromUnix(uint64 unixTime) {
-    uint64 daysSinceEpoch = unixTime / 86400;
-    return int((daysSinceEpoch + 4) % 7); // 0=Sun..6=Sat (Jan 1 1970 = Thu = 4)
-}
-```
-
-### 3. No UI::Font enum — use PushFontSize
-
-**Error if wrong:** `No matching symbol 'UI::Font::OpenSansBold'`
-
-```angelscript
-// CORRECT:
-UI::PushFontSize(22.0);
-UI::Text("Big text");
-UI::PopFontSize();
-
-// WRONG (does not exist):
-UI::PushFont(UI::Font::OpenSansBold);     // ERROR
-UI::PushFont(UI::Font::DefaultBold);      // ERROR
-```
-
-### 4. No UI::TextColored — use PushStyleColor
-
-**Error if wrong:** `No matching symbol 'UI::TextColored'`
-
-```angelscript
-// CORRECT:
-UI::PushStyleColor(UI::Col::Text, vec4(0.3f, 1.0f, 0.5f, 1.0f));
-UI::Text("Green text");
-UI::PopStyleColor();
-
-// WRONG:
-UI::TextColored(color, "text");  // ERROR
-```
-
-### 5. Window position uses int coords
-
-```angelscript
-// CORRECT (cast floats to int):
-UI::SetNextWindowPos(int(posX), int(posY), UI::Cond::Appearing);
-
-// Triggers float-truncation warning:
-UI::SetNextWindowPos(posX, posY, UI::Cond::Appearing);
-```
-
-### 6. UI::Begin takes a bool reference
-
-```angelscript
-bool S_WindowOpen = false;
-
-// The bool ref lets the user close the window with X button:
-if (!UI::Begin("My Window", S_WindowOpen, UI::WindowFlags::NoSavedSettings)) {
-    UI::End();
-    return;
-}
-```
-
-### 7. Time functions
+#### 🕐 Time functions
 
 ```angelscript
 int64 now = Time::Stamp;                          // Epoch seconds
 uint64 gameTime = Time::Now;                      // ms since game start
 string formatted = Time::FormatString("%H:%M", now);  // strftime format
 Time::Info info = Time::Parse(now);               // Local time
-Time::Info utcInfo = Time::ParseUTC(stamp);       // UTC time
-int64 parsed = Time::ParseFormatString("%Y-%m-%d %H:%M", "2026-05-26 20:00");
 ```
 
-## 🐛 Debugging Compilation Errors
+---
 
-1. **Check the log file** — errors appear in `Openplanet/Openplanet.log`
-2. Look for `[ERROR]` lines with your plugin name
-3. Common errors and their fixes:
+### 🖥️ UI API Quirks
 
-| Error | Likely cause | Fix |
-|-------|-------------|-----|
-| `'xxx' is not a member of 'Time::Info'` | Wrong case | Use PascalCase: Year, Month, Day, etc. |
-| `No matching symbol 'UI::Font::...'` | Font enum doesn't exist | Use PushFontSize/PopFontSize |
-| `No matching symbol 'UI::TextColored'` | Function doesn't exist | Use PushStyleColor(UI::Col::Text, ...) |
-| `Float value truncated in implicit conversion` | float where int expected | Cast: `int(value)` |
-| `Signed/Unsigned mismatch` warning | Mixing `int` and `uint` in comparisons | Cast to match: `uint(idx)` or `int(arr.Length)` |
-| `No matching signatures to 'UI::InputText(...)'` | Wrong param order (e.g. bufferSize as 3rd) | Use `bool&out changed` as 3rd param |
-| `Expression must be of boolean type, instead found 'string'` | Using InputText return in `if()` | Call InputText separately, check `bool&out changed` after |
-| `No matching function 'UI::SetNextWindowPos'` | Wrong param types | Pass int coords: `int(x), int(y)` |
-
-**Reference files**
-
-This skill ships with the official Openplanet API documentation as reference files. Load any of them when you need API details:
-
-| File | Size | Contents |
-|------|------|----------|
-| `OpenPlanet-Global-API.md` | 73KB | Full global API reference (Time, UI, nvg, Net, IO, all namespaces) |
-| `OpenPlanet-API-Reference.md` | 24KB | Complete API reference with all namespaces, enums, and function signatures |
-| `Openplanet-Starter-API.md` | 60KB | Plugin development guide, callbacks, settings, icons |
-| `OpenPlanet-Basic-API.md` | 42KB | Tutorials: NanoVG drawing, ImGui widgets, shapes, colors |
-| `Openplanet-Changelog-API.md` | 16KB | Openplanet version history — what was added/changed/fixed |
-| `plugin-skeleton.as` | 1.3KB | Minimal plugin template to start from |
-
-### 8. Array initialization — inline `int t[] = {...}` fails inside functions
+#### 🔤 No UI::Font enum — use PushFontSize
 
 ```angelscript
-// WRONG — inline int array init does NOT work inside functions:
-// int t[] = {0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4};  // ERROR: Expected '('
+// ✅ OK:
+UI::PushFontSize(22.0);
+UI::Text("Big text");
+UI::PopFontSize();
 
-// CORRECT — use array<T> with InsertLast (dynamic):
-array<int64> items;
-items.InsertLast(123);
-
-// CORRECT — pre-allocate at global scope using Resize():
-int[] g_Array;
-void Main() { g_Array.Resize(16); }
-
-// CORRECT — inline array init works at global/namespace scope:
-int[] monthDays = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+// ❌ ERR (does not exist):
+UI::PushFont(UI::Font::OpenSansBold);
 ```
 
-### 9. Recurring weekly events pattern
-
-Common pattern for game schedules (COTD, Pursuit, etc.). Store day-of-week (1=Mon..7=Sun), hour, minute:
+#### 🎨 No UI::TextColored — use PushStyleColor
 
 ```angelscript
-const int MAX_EVENTS = 16;
-int g_Count = 0;
-int[] g_WeekDay; int[] g_Hour; int[] g_Min; string[] g_Label;
+// ✅ OK:
+UI::PushStyleColor(UI::Col::Text, vec4(0.3f, 1.0f, 0.5f, 1.0f));
+UI::Text("Green text");
+UI::PopStyleColor();
 
-void InitSchedule() {
-    g_WeekDay.Resize(MAX_EVENTS); g_Hour.Resize(MAX_EVENTS);
-    g_Min.Resize(MAX_EVENTS); g_Label.Resize(MAX_EVENTS);
-    AddEvent(1, 18, 0, "Event name"); // Monday 18:00
-}
-void AddEvent(int d, int h, int m, const string &in l) {
-    if (g_Count >= MAX_EVENTS) return;
-    g_WeekDay[g_Count] = d; g_Hour[g_Count] = h;
-    g_Min[g_Count] = m; g_Label[g_Count] = l; g_Count++;
-}
+// ❌ ERR:
+UI::TextColored(color, "text");
+```
 
-int64 GetNextEventTs(int dayOfWeek, int hour, int minute) {
-    int64 now = Time::Stamp;
-    // diff = targetDOW - curDOW; if diff < 0 diff += 7
-    // if diff == 0 && time passed: diff = 7
-    // return todayStart + diff*86400 + hour*3600 + minute*60
+#### 📍 Window position uses int coords
+
+```angelscript
+// ✅ OK (cast floats to int):
+UI::SetNextWindowPos(int(posX), int(posY), UI::Cond::Appearing);
+```
+
+#### 🪟 UI::Begin takes a bool reference
+
+```angelscript
+bool S_WindowOpen = false;
+if (!UI::Begin("My Window", S_WindowOpen, UI::WindowFlags::NoSavedSettings)) {
+    UI::End();
+    return;
 }
 ```
 
-### 10. Converting between Gregorian and lunar calendar dates
-
-For custom calendars (e.g., 13-moon with 28-day months):
+#### ⌨️ UI::InputText — return type vs. bool&out
 
 ```angelscript
-int GetDayOfYear(int year, int month, int day) { /* Gregorian DOY */ }
-void DayOfYearToGregorian(int year, int dayOfYear, int &out month, int &out day);
-uint64 UnixFromGregorian(int year, int month, int day);
-void GetGregorianFromUnix(uint64 unixTime, int &out year, int &out month, int &out day);
+// ❌ ERR — InputText ALWAYS returns string, can't use in if():
+if (UI::InputText("##Input", g_Text, changed, flags)) { }
+
+// ✅ OK:
+bool changed = false;
+UI::InputText("##Input", g_Text, changed, flags);
+if (changed) { /* Enter was pressed */ }
 ```
 
-### 11. Calendar day indicators (event dots / inline data)
+---
 
-**Event dots — mark days that have events:**
+### 🖌️ NanoVG Essentials
+
+The drawing API is per-frame immediate-mode. State persists until changed.
+
 ```angelscript
-bool[] g_DaysWithEvents;
-void Main() { g_DaysWithEvents.Resize(31); while (true) { RebuildEventDays(); yield(); } }
+nvg::BeginPath();
+nvg::MoveTo(p1);
+nvg::LineTo(p2);
+nvg::Stroke();          // ← actually draws the path
 
-void RebuildEventDays() {
-    for (int i = 0; i < 31; i++) g_DaysWithEvents[i] = false;
-    int curDOW = (curWday == 0) ? 7 : curWday;
-    for (int i = 0; i < g_EventCount; i++) {
-        int diff = g_WeekDay[i] - curDOW;
-        int64 eventDay = curDay + diff;
-        if (eventDay >= 1 && eventDay <= 31) g_DaysWithEvents[eventDay - 1] = true;
+nvg::FontSize(13.0f);
+nvg::FillColor(vec4(1.0f, 1.0f, 1.0f, 0.9f));
+nvg::TextAlign(nvg::Align::Middle | nvg::Align::Center);
+nvg::Text(p, "label");
+```
+
+- `nvg::BeginPath()` is **required** for `LineTo`/`Rect`/`Circle`/etc.
+- `nvg::Text()` does **NOT** need `BeginPath`.
+- For minimum state changes, batch draws that share a state.
+
+---
+
+### 📷 Camera API
+
+#### 🎯 Camera::ToScreenSpace returns `vec2`, not `vec3`
+
+```angelscript
+vec2 screenPos = Camera::ToScreenSpace(worldPos);   // 2D only
+// NO z/depth component!
+```
+
+For behind-camera test:
+
+```angelscript
+if (Camera::IsBehind(worldPos)) {
+    // skip this point
+}
+```
+
+⚠️ Don't assume a `vec3` overload exists. The `vec2` return is the only signature.
+
+#### 🚗 VehicleState::ViewingPlayerState() returns CSmPlayer
+
+```angelscript
+auto state = VehicleState::ViewingPlayerState();
+if (state is null) return;       // null when not in a vehicle / not in a map
+vec3 pos = state.Position;        // world-space player position
+```
+
+Use `is null` — AngelScript's null-comparison operator for handles.
+
+---
+
+### 🧱 Trackmania Block Dimensions
+
+Standard blocks are **32 × 32 × 8** (X × Z × Y) in world units.
+
+```angelscript
+const float BLOCK_XZ = 32.0f;
+const float BLOCK_Y  = 8.0f;
+
+int gx = int(Math::Floor(worldPos.x / BLOCK_XZ));
+int gy = int(Math::Floor(worldPos.y / BLOCK_Y));
+int gz = int(Math::Floor(worldPos.z / BLOCK_XZ));
+```
+
+---
+
+## ⚡ Performance Patterns
+
+### 🎨 Minimize NVG state changes
+
+Batch draws by state — the single biggest FPS win:
+
+```angelscript
+// ❌ BAD: stroke state changes per block
+for (each block) {
+    nvg::StrokeColor(...);
+    nvg::StrokeWidth(...);
+    DrawEdgesOfBlock(...);
+}
+
+// ✅ GOOD: sort by state, then batch
+nvg::StrokeColor(green);  // once per "visited" pass
+for (each visited block) DrawEdgesOfBlock(...);
+nvg::StrokeColor(red);    // once per "unvisited" pass
+for (each unvisited block) DrawEdgesOfBlock(...);
+```
+
+State-change guard:
+
+```angelscript
+bool g_LastDrewVisited = false;
+void ApplyStroke(bool visited) {
+    if (visited == g_LastDrewVisited) return;
+    g_LastDrewVisited = visited;
+    nvg::StrokeColor(visited ? green : red);
+    nvg::StrokeWidth(visited ? 3.0f : 2.0f);
+}
+```
+
+### 🧠 Don't recompute in `Render()`
+
+Anything that can be computed in `Update()` and cached as a global is one less per-frame allocation.
+
+### 👁️ Spatial culling
+
+For 3D grids:
+1. **Per-block AABB cull**: project all 8 corners; if 0 in front of camera, skip block
+2. **Edge-level cull**: only draw edges whose two endpoints were both visible
+
+### 🔤 Avoid string concatenation in hot loops
+
+`"a" + "b" + "c"` allocates 3 new strings. For cache keys hit thousands of times per frame, cache the per-frame key. For 4–8 char keys, the cost is acceptable — the lookup hash dominates.
+
+---
+
+## 📊 Diagnostic UI
+
+The `UI::*` namespace is immediate-mode (like Dear ImGui):
+
+```angelscript
+UI::SetNextWindowSize(width, height, UI::Cond::FirstUseEver);
+if (UI::Begin("My Diagnostics")) {
+    UI::Text("Static label: " + value);
+    if (UI::Button("Reset")) {
+        // handle click
     }
+    UI::Separator();
 }
-// In DrawCalendar:
-if (g_DaysWithEvents[day - 1])
-    UI::PushStyleColor(UI::Col::Button, vec4(0.4f, 0.8f, 0.4f, 0.25f));
+UI::End();
 ```
 
-**Inline data in each cell — show computed value without hover:**
-```angelscript
-// In each cell, after drawing the day number button:
-UI::TextDisabled(Text::Format("%.0f", progress * 100.0));  // e.g. "23" = 23%%
+Window titles with icons: `UI::Begin(Icons::Eye + " Diagnostics")`
 
-// Moon phase icon alongside:
-auto@ tex = Moon::GetTextureForPosition(synodic);
-if (tex !is null) {
-    UI::SameLine();
-    UI::Image(tex, vec2(14, 14));
-}
-```
+The `Icons::` namespace has 600+ Unicode glyphs (`Icons::Eye`, `Icons::Cog`, `Icons::Trash`, `Icons::Clock`, `Icons::Car`, `Icons::Info`, `Icons::Calendar`, `Icons::Star`, `Icons::QuestionCircle`, etc.).
 
-The inline percentage lets users see moon/sidereal cycle at a glance without mousing over each day. Combine with a tooltip for full details, and keep the inline text compact (2-3 chars: `"23"` not `"23.4%"`).
-
-### 12. Upcoming events list with countdown
-
-```angelscript
-array<int64> eTs; array<string> eLabel; int64 now = Time::Stamp;
-for (int i = 0; i < g_EventCount; i++) {
-    int64 ets = GetNextEventTs(g_WeekDay[i], g_Hour[i], g_Min[i]);
-    if (ets > now) { eTs.InsertLast(ets); eLabel.InsertLast(g_Label[i]); }
-}
-// Bubble sort
-for (int a = 0; a < int(eTs.Length); a++)
-    for (int b = a + 1; b < int(eTs.Length); b++)
-        if (eTs[b] < eTs[a]) { /* swap */ }
-// Display first 5
-for (int i = 0; i < Math::Min(5, int(eTs.Length)); i++) {
-    string ds = Time::FormatString("%a %H:%M", eTs[i]);
-    if (i == 0) { UI::PushStyleColor(UI::Col::Text, vec4(0.3f, 1.0f, 0.5f, 1.0f)); }
-    UI::Text((i==0?"> ":"  ") + eLabel[i] + " " + ds);
-    if (i == 0) UI::PopStyleColor();
-}
-```
-
-### 13. Config & Debug Window Pattern
-
-When a plugin grows beyond a simple display, add a tabbed config+debug window:
+### 🗂️ Config & Debug Window Pattern
 
 ```angelscript
 void RenderDebugWindow() {
@@ -346,285 +545,321 @@ void RenderDebugWindow() {
 }
 ```
 
-**Config tab — toggle rows helper:**
-```angelscript
-void ConfigRow(const string &in label, bool value) {
-    UI::TableNextRow();
-    UI::TableSetColumnIndex(0); UI::Text(label);
-    string s = value ? "ON" : "OFF";
-    vec4 c = value ? vec4(0.3f, 1.0f, 0.4f, 1.0f) : vec4(0.6f, 0.6f, 0.6f, 1.0f);
-    UI::TableSetColumnIndex(1);
-    UI::PushStyleColor(UI::Col::Text, c); UI::Text(s); UI::PopStyleColor();
-}
-```
-
-**Note:** `bool` is a primitive — pass by value, not `&inout`. See quirk #14 below.
-
-**Status tab — live plugin state:**
-```angelscript
-void RenderStatusTab() {
-    uint64 now = Time::get_Stamp();
-    UI::Text("Unix: " + tostring(now));
-    UI::Text("Today: " + format_string);
-    UI::TextDisabled("Cached: " + tostring(g_Cache.GetKeys().Length));
-    double val = Compute(now);
-    UI::PushStyleColor(UI::Col::Text, GetColor(val));
-    UI::Text("Phase: " + GetName(val));
-    UI::PopStyleColor();
-}
-```
-
-**Typical tab breakdown:**
 | Tab | Content |
-|-----|---------|
-| Config | All `[Setting]` toggles in a table with ON/OFF |
-| Status | Live values, cache queues, computed data |
-| History | Data tables, map visits, recorded events |
-| Reference | Static reference data (nodes, calibration tables) |
+|---|---|
+| ⚙️ Config | All `[Setting]` toggles in a table with ON/OFF |
+| 📊 Status | Live values, cache queues, computed data |
+| 📜 History | Data tables, map visits, recorded events |
+| 📋 Reference | Static reference data (nodes, calibration tables) |
 
-### 14. &inout on primitive types is NOT allowed
+---
 
-**Error if wrong:** `Only object types that support object handles can use &inout. Use &in or &out instead`
+## 🌙 Lunar Calendar & Date Conversion
 
-Primitive types (`bool`, `int`, `float`, `double`, `uint64`, etc.) cannot use `&inout` in function parameters — only object types (`string`, arrays, classes) can.
-
-```angelscript
-// WRONG:
-void ConfigRow(const string &in label, bool &inout value) { }  // ERROR
-
-// CORRECT — pass by value for reads:
-void ConfigRow(const string &in label, bool value) { }
-
-// CORRECT — use &out for write-only, &in for read-only references:
-void SetResult(int &out result) { result = 42; }
-void ProcessData(const string &in data) { }  // &in is fine for objects
-```
-
-### 15. UI::InputText — return type vs. bool&out changed
-
-**Error if wrong:**
-- `Expression must be of boolean type, instead found 'string'` — using return value directly in `if()`
-- `No matching signatures to 'UI::InputText(...)'` — wrong parameter order
-
-Openplanet has TWO overloads:
+### 📅 Gregorian ↔ Day of Year
 
 ```angelscript
-// Overload 1 — returns string, NO bool&out
-string UI::InputText(const string&in label, string str,
-    int flags = UI::InputTextFlags::None,
-    UI::InputTextCallback@ callback = null);
+// Day of year from Gregorian (1-based)
+int GetDayOfYear(int year, int month, int day) {
+    int[] daysBefore = {0, 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334};
+    int doy = daysBefore[month] + day;
+    if (month > 2 && IsLeapYear(year)) doy++;
+    return doy;
+}
 
-// Overload 2 — bool&out changed as 3rd param, returns string
-string UI::InputText(const string&in label, string str,
-    bool&out changed,
-    int flags = UI::InputTextFlags::None,
-    UI::InputTextCallback@ callback = null);
-```
+// Day of year back to Gregorian
+void DayOfYearToGregorian(int year, int dayOfYear, int &out month, int &out day) {
+    int[] mdays = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    if (IsLeapYear(year)) mdays[1] = 29;
+    month = 1;
+    int remaining = dayOfYear;
+    for (int i = 0; i < 12; i++) {
+        if (remaining <= mdays[i]) { month = i + 1; day = remaining; return; }
+        remaining -= mdays[i];
+    }
+    month = 12; day = 31;
+}
 
-**The trap:** `UI::InputText` ALWAYS returns `string`, even with the `bool&out` overload. You CANNOT use it directly in `if()`. Instead, call it then check the `changed` flag separately.
+// Unix timestamp from Gregorian date (midnight UTC)
+uint64 UnixFromGregorian(int year, int month, int day) {
+    Time::Info info;
+    info.Year = year;
+    info.Month = month;
+    info.Day = day;
+    info.Hour = 0;
+    info.Minute = 0;
+    info.Second = 0;
+    return Time::Unix(info);
+}
 
-```angelscript
-// WRONG — overload 1 returns string, can't use in if():
-if (UI::InputText("##Input", g_Text, UI::InputTextFlags::EnterReturnsTrue)) { }  // ERROR
+// Gregorian from Unix timestamp
+void GetGregorianFromUnix(uint64 unixTime, int &out year, int &out month, int &out day) {
+    Time::Info info = Time::Parse(unixTime);
+    year = info.Year;
+    month = info.Month;
+    day = info.Day;
+}
 
-// WRONG — overload 2 ALSO returns string, bool&out doesn't change return type:
-if (UI::InputText("##Input", g_Text, changed, UI::InputTextFlags::EnterReturnsTrue)) { }  // ERROR
-
-// WRONG — bufferSize (int) as 3rd param doesn't match any overload:
-UI::InputText("##Input", g_Text, 256, UI::InputTextFlags::EnterReturnsTrue);     // ERROR
-
-// CORRECT — call InputText, then check changed separately:
-bool changed = false;
-UI::InputText("##Input", g_Text, changed, UI::InputTextFlags::EnterReturnsTrue);
-if (changed) {
-    // Enter was pressed
+bool IsLeapYear(int year) {
+    return (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
 }
 ```
 
-Note: `InputText` accepts `string` (not `string&`) for the text parameter — the callback or `changed` flag handles incremental updates. You don't need to pass `256` as bufferSize; the string grows dynamically.
-
-### 16. string::IndexOf — takes exactly ONE parameter (no offset)
-
-**Error if wrong:** `No matching signatures to 'string::IndexOf(const string, int)'`
-
-`string::IndexOf` in Openplanet AngelScript takes **only one parameter** — the substring to find. There is NO second parameter for start offset (unlike C# or JavaScript).
+### 🌓 Moon phase (synodic ~29.53 days)
 
 ```angelscript
-// WRONG — IndexOf with 2 params (substring + offset) does NOT exist:
-int idx = text.IndexOf("[", startPos);  // ERROR
+// Returns 0.0 (new moon) to 1.0 (next new moon)
+float GetMoonPhase(uint64 unixTime) {
+    // Known new moon: 2000-01-06 18:14 UTC = 947182440
+    const float SYNODIC = 29.53058867;
+    double daysSince = double(unixTime - 947182440) / 86400.0;
+    return float(fmod(daysSince, SYNODIC) / SYNODIC);
+}
 
-// CORRECT — IndexOf with 1 param only:
-int idx = text.IndexOf("[");  // Returns -1 if not found
-
-// To search from a position, use SubStr first:
-int idx = text.SubStr(startPos).IndexOf("[");
-if (idx != -1) idx += startPos; // Adjust for the offset
+// Moon texture for current phase (requires Moon plugin textures)
+auto@ GetMoonTexture(uint64 unixTime) {
+    float phase = GetMoonPhase(unixTime);
+    // 0.0=new, 0.25=first quarter, 0.5=full, 0.75=last quarter
+    // Map to your texture array index
+    int idx = int(phase * 8.0) % 8;
+    return Moon::GetTexture(idx);
+}
 ```
 
-Also note: `IndexOf` returns `int` (not `uint`), and returns `-1` when not found.
+---
 
-### 17. Text::Format takes exactly ONE value argument
+## 📆 Calendar Day Indicators
 
-**Error if wrong:** `No matching signatures to 'Text::Format(const string, double, double)'`
-
-`Text::Format()` in Openplanet's AngelScript is NOT like C printf — it accepts **only one** value parameter, not variadic arguments:
+### 🟢 Event dots — mark days that have events
 
 ```angelscript
-// WRONG — multiple values in one call:
-Text::Format("%.6f (%.2f%%)", sidereal, sidereal * 100.0);  // ERROR
+bool[] g_DaysWithEvents;
 
-// CORRECT — use two calls concatenated:
-Text::Format("%.6f", sidereal) + " (" + Text::Format("%.2f%%", sidereal * 100.0) + ")";
+void Main() {
+    g_DaysWithEvents.Resize(31);
+    while (true) {
+        RebuildEventDays();
+        yield();
+    }
+}
 
-// Single value works fine:
-Text::Format("%.4f°", sidereal * 360.0);
-Text::Format("%d items", count);
-Text::Format("%.1f km/h", speed);
+void RebuildEventDays() {
+    for (int i = 0; i < 31; i++) g_DaysWithEvents[i] = false;
+    Time::Info now = Time::Parse(Time::Stamp);
+    int curDOW = GetDayOfWeek(now.Year, now.Month, now.Day);
+    // Convert Sun=0 to Mon=1..Sun=7 convention if needed
+    curDOW = (curDOW == 0) ? 7 : curDOW;
+    int curDay = now.Day;
+    for (int i = 0; i < g_EventCount; i++) {
+        int diff = g_WeekDay[i] - curDOW;
+        int eventDay = curDay + diff;
+        if (eventDay >= 1 && eventDay <= 31) g_DaysWithEvents[eventDay - 1] = true;
+    }
+}
 ```
-### 18. Signed/Unsigned mismatch warnings
 
-**Warning:** `WARN : Signed/Unsigned mismatch` — appears when mixing `int` (signed) and `uint` (unsigned) in comparisons, assignments, or array indexing.
-
-This is a WARNING, not an error — compilation succeeds, but indicates a potential logic bug.
+In your calendar draw loop:
 
 ```angelscript
-// WARNING trigger examples:
-uint length = arr.Length;    // arr.Length returns uint
-int idx = someValue;
-if (idx < length) { ... }    // int < uint → signed/unsigned mismatch warning
-
-// CORRECT — cast to match types:
-if (uint(idx) < length) { ... }
-// or
-int len = int(arr.Length);
-if (idx < len) { ... }
+// Highlight days with event dots
+if (g_DaysWithEvents[day - 1])
+    UI::PushStyleColor(UI::Col::Button, vec4(0.4f, 0.8f, 0.4f, 0.25f));
+UI::Button(dayStr);
+if (g_DaysWithEvents[day - 1])
+    UI::PopStyleColor();
 ```
 
-Common places this appears: comparing loop counters against `array.Length` (which returns `uint`), or storing `uint` results in `int` variables. Fix by explicitly casting one side to match the other.
+### 📊 Inline data in cells — show computed value without hover
 
-### 19. Preprocessor Directives
+```angelscript
+// In each calendar cell, after drawing the day number button:
+UI::TextDisabled(Text::Format("%.0f%%", progress * 100.0));  // e.g. "23%" = 23%
+
+// Moon phase icon alongside:
+auto@ tex = GetMoonTexture(Time::Stamp);
+if (tex !is null) {
+    UI::SameLine();
+    UI::Image(tex, vec2(14, 14));
+}
+```
+
+---
+
+## ⏱️ Upcoming Events Countdown
+
+```angelscript
+array<int64> eTs; array<string> eLabel;
+
+void BuildUpcomingList() {
+    eTs.Resize(0);
+    eLabel.Resize(0);
+    int64 now = Time::Stamp;
+    for (int i = 0; i < g_Count; i++) {
+        int64 ets = GetNextEventTs(g_WeekDay[i], g_Hour[i], g_Min[i]);
+        if (ets > now) {
+            eTs.InsertLast(ets);
+            eLabel.InsertLast(g_Label[i]);
+        }
+    }
+    // Bubble sort by timestamp (ascending)
+    for (uint i = 0; i < eTs.Length - 1; i++) {
+        for (uint j = 0; j < eTs.Length - 1 - i; j++) {
+            if (eTs[j] > eTs[j + 1]) {
+                int64 tmpT = eTs[j]; eTs[j] = eTs[j + 1]; eTs[j + 1] = tmpT;
+                string tmpL = eLabel[j]; eLabel[j] = eLabel[j + 1]; eLabel[j + 1] = tmpL;
+            }
+        }
+    }
+}
+
+// Display first 5 in UI:
+void RenderUpcoming() {
+    BuildUpcomingList();
+    uint count = eTs.Length;
+    if (count > 5) count = 5;
+    for (uint i = 0; i < count; i++) {
+        int64 ago = eTs[i] - Time::Stamp;
+        string countdown = FormatCountdown(ago);
+        UI::Text(eLabel[i] + " — " + countdown);
+    }
+}
+
+string FormatCountdown(int64 seconds) {
+    int h = int(seconds / 3600);
+    int m = int((seconds % 3600) / 60);
+    return Text::Format("%dh %dm", h, m);
+}
+```
+
+---
+
+## 🔁 Recurring Events Pattern
+
+```angelscript
+const int MAX_EVENTS = 16;
+int g_Count = 0;
+int[] g_WeekDay; int[] g_Hour; int[] g_Min; string[] g_Label;
+
+void AddEvent(int d, int h, int m, const string &in l) {
+    if (g_Count >= MAX_EVENTS) return;
+    g_WeekDay[g_Count] = d; g_Hour[g_Count] = h;
+    g_Min[g_Count] = m; g_Label[g_Count] = l; g_Count++;
+}
+```
+
+⏱️ Upcoming events with countdown:
+
+```angelscript
+array<int64> eTs; array<string> eLabel;
+for (int i = 0; i < g_EventCount; i++) {
+    int64 ets = GetNextEventTs(g_WeekDay[i], g_Hour[i], g_Min[i]);
+    if (ets > now) { eTs.InsertLast(ets); eLabel.InsertLast(g_Label[i]); }
+}
+// Bubble sort, display first 5
+```
+
+---
+
+## 🔀 Preprocessor Directives
 
 ```angelscript
 #if TMNEXT
     // Trackmania (2020) only
 #elif MP4
     // Maniaplanet 4 only
-#elif TURBO
-    // Trackmania Turbo
-#elif UNITED
-    // Trackmania United
-#endif
-
-#if WINDOWS
-    // Windows-specific code
-#elif LINUX
-    // Linux-specific code
 #endif
 ```
-
-### 20. Icons
-
-Use `Icons::` namespace constants. Available icon families include FontAwesome (`Icons::Clock`, `Icons::Car`, `Icons::Info`, `Icons::Calendar`, `Icons::QuestionCircle`, `Icons::Crosshairs`, `Icons::Exclamation`, etc.) and Kenney (`Icons::Kenney::Plus`, `Icons::Kenney::Info`, etc.). Full list in the Starter API docs.
-
-### 21. Per-window main-menu visibility
-
-Use when a plugin exposes multiple windows from one menu and some should be hidden by default.
-```angelscript
-[Setting category="General" name="Show Calendar in Main Menu"]
-bool S_ShowCalendarInMainMenu = true;
-
-[Setting category="General" name="Show Player Profile in Main Menu"]
-bool S_ShowPlayerProfileInMainMenu = true;
-```
-
-In `RenderMenuMain()` guard each item independently:
-```angelscript
-if (S_ShowCalendarInMainMenu) {
-    if (UI::MenuItem(Icons::Star + "Apeiron Galaxy", "", g_UIState.ShowCalendarWindow)) {
-        g_UIState.ShowCalendarWindow = !g_UIState.ShowCalendarWindow;
-        S_ShowCalendarOnStart = g_UIState.ShowCalendarWindow;
-    }
-}
-```
-
-### 22. Cleaning up when removing a feature
-
-Check EVERY `.as` file when removing feature from a multi-file plugin:
-
-1. **Settings.as** — Remove setting toggle, event arrays, InitSchedule, helpers
-2. **Core/Math files** — Remove calc functions (GetNextTs, HasEvent, etc.)
-3. **UI files** — Remove rendering: dots, tooltip lines, event sections
-4. **Diagnostics file** — Remove dead tab content and orphaned functions
-5. **Main.as** — Remove InitSchedule() call
-
-Use `grep -rn "DeletedName" Plugins/<name>/` before deleting to catch all references.
 
 ---
 
-## 📂 Openplanet Folder Structure Reference
+## 🐛 Common Build/Compile Errors
 
-### Root layout
-```
-Openplanet4/
-├── docs/                  # API documentation (Markdown + .h)
-├── Plugins/               # Your installed/developed plugins
-├── Plugins-Archive/       # Disabled/old plugins
-├── Plugins-Developer/     # WIP/dev copies
-├── Plugins-Downloaded/    # Downloaded .op files (ZIP archives)
-├── PluginStorage/         # Per-plugin persistent data
-├── Openplanet/            # Openplanet's runtime files
-├── Scripts/               # User scripts (survives updates)
-├── ManiaScript/           # ManiaScript libraries
-├── Settings.ini           # Openplanet-wide settings
-├── Gui.ini                # ImGui window positions/sizes
-├── Openplanet.log         # Debug log — check for compilation errors
-├── Openplanet.h           # C++ game class hierarchy
-├── Openplanet4.json       # Plugin registry metadata
-└── OpenplanetCore.json    # Built-in plugin metadata
-```
+| Error message | Cause | Fix |
+|---|---|---|
+| `ERR : No matching symbol 'X::Y'` at function call | Missing `dependencies` in `info.toml` | Add the owning plugin to `[script].dependencies` |
+| `ERR : Unexpected token '<identifier>'` after numeric literal | Integer suffix (`u`, `l`, etc.) not supported | Drop suffix or use `uint64(x)` cast |
+| `ERR : Expected '(' Instead found '['` on `const TYPE name[N]` | `const` on fixed-size value-type array | Use `TYPE[] name = { ... };` (dynamic, no const) |
+| `ERR : Expected ';' Instead found identifier 'pts'` on `vec2 pts[8];` | Local fixed-size array not supported | Use individual variables |
+| `ERR : No matching signatures to 'dictionary::Exists(uint64)'` | Dictionary only takes string keys | Convert to `string` key |
+| `WARN : Signed/Unsigned mismatch` in `for` loop | `int i` vs `uint Length` | Use `uint i` |
+| `ERR : Can't implicitly convert from 'vec2' to 'vec3'` | `Camera::ToScreenSpace` returns `vec2` | Use `vec2`; test `Camera::IsBehind` for cull |
+| `'year' is not a member of 'Time::Info'` | Wrong case on member | Use PascalCase: `info.Year`, `info.Month`, `info.Day`, etc. |
+| `'Weekday' is not a member of 'Time::Info'` | Weekday doesn't exist on Time::Info | Use Zeller's formula (see Time API section) |
+| `No matching symbol 'UI::Font::...'` | Font enum doesn't exist | Use `PushFontSize`/`PopFontSize` |
+| `No matching symbol 'UI::TextColored'` | Function doesn't exist | Use `PushStyleColor(UI::Col::Text, ...)` |
+| `Float value truncated in implicit conversion` | float where int expected | Cast: `int(value)` |
+| `ERR : No matching symbol 'outDepth'` | `out` param name mismatch | Match parameter name exactly |
+| `ERR : Can't implicitly convert from 'string' to 'bool'` | `UI::InputText` return in `if()` | Call separately, check `changed` bool after |
+| `ERR on '&inout' with primitive` | `&inout` not allowed on primitives | Pass by value for reads |
+| `ERR on 'IndexOf' with 2 args` | `string::IndexOf` takes 1 param | Use `SubStr` first for offset |
+| `ERR on 'Text::Format' with 2 values` | `Text::Format` takes 1 value arg | Chain multiple `Text::Format` calls |
 
-### Openplanet/ runtime files
-```
-Scripts/     — Built-in imports (Dialogs.as, Patch.as, etc.)
-Plugins/     — System plugins (VehicleState, Camera, Controls, Discord)
-Fonts/       — DroidSans*, Montserrat*, Oswald*, ManiaIcons.ttf
-```
+---
 
-**⚠️ Never put scripts in `Openplanet/Scripts/` — deleted on update. Use `Openplanet4/Scripts/`.**
+## 🔧 Debugging Tips
 
-### Plugin dependencies in info.toml
+- 📝 **`F3 → Log`** — `print("hello")` lands here
+- 🔄 **Reload scripts** after every save via `F3 → Developer → Reload Scripts` — no restart needed
+- 📋 **F3 → Developer → Plugin Manager** — shows load order and compile errors
+- 🔍 **Nod Explorer** (`F3 → Developer → Nod Explorer`) — browse live `CGameCtnApp` tree
+- 📄 **Openplanet.log** (`%USERPROFILE%\OpenplanetNext\Openplanet.log`) — stack traces for runtime crashes
+
+---
+
+## 🚀 Quick-Start Template
+
 ```toml
+# info.toml
+[meta]
+name        = "My Plugin"
+author      = "Me"
+category    = "Tools"
+version     = "1.0.0"
+
 [script]
-dependencies = [ "VehicleState" ]  # Also: Camera, Controls, Discord
-imports = [ "Dialogs.as", "Patch.as" ]
+timeout         = 0
+dependencies    = [ "VehicleState" ]
 ```
 
-### Reference files
+```angelscript
+// main.as
+[Setting name="Enabled" category="General"]
+bool S_Enabled = true;
 
-Full list of reference files with API details, patterns, and debugging tips:
-https://github.com/tomekdot/hermes-skills/tree/main/skills/software-development/openplanet-plugin-dev/references
-These are also included in the skill package for offline access.
+void Update(float dt) {
+    if (!S_Enabled) return;
+    auto state = VehicleState::ViewingPlayerState();
+    if (state is null) return;
+    // ... per-frame work ...
+}
 
-| File | Size | Contents |
-|------|------|----------|
-| `OpenPlanet-Global-API.md` | 73KB | Full global API ref (Time, UI, nvg, Net, IO) |
-| `Openplanet-Starter-API.md` | 60KB | Plugin dev guide, callbacks, settings, icons |
-| `OpenPlanet-Basic-API.md` | 42KB | Tutorials: NanoVG, ImGui, shapes, colors |
-| `Openplanet-Changelog-API.md` | 16KB | Version history |
-| `plugin-skeleton.as` | 1.3KB | Minimal plugin template |
-| `info-toml-reference.md` | 4KB | Full info.toml field reference |
-| `time-api.md` | 2KB | Time API quick reference (Parse, FormatString, weekday) |
-| `maniaplanet-feedback-extraction.md` | 3KB | Parsing ManiaPlanet Feedback HTML (ratings, vote counts) |
-| `ui-window-template.as` | 1KB | Boilerplate UI window template |
+void Render() {
+    if (!S_Enabled) return;
+    if (UI::Begin(Icons::Cog + " My Plugin")) {
+        UI::Text("Hello world");
+    }
+    UI::End();
+}
+```
 
+---
 
-## ✅ Verification
+## 🧹 Cleanup When Removing a Feature
 
-After creating or modifying a plugin:
+Check EVERY `.as` file:
 
-1. Restart Trackmania/Openplanet (or disable/re-enable the plugin in settings)
-2. Check Openplanet overlay menu for the plugin's menu item
-3. Check `Openplanet.log` for any compilation errors (the log includes line numbers)
-4. Settings appear under Openplanet Settings → plugin name
-5. For UI changes: toggle the window open/close to verify rendering
+```bash
+grep -rn "DeletedName" Plugins/<name>/
+```
 
+---
+
+## 📚 Reference
+
+Full API reference: 🌐 **https://openplanet.dev/docs**
+
+Hermes skills repo reference files: 📎 https://github.com/tomekdot/hermes-skills/tree/main/skills/software-development/openplanet-plugin-dev/references
+
+---
+
+*Last updated: 2026-06-12. Covers AngelScript build as of OpenplanetNext 2026.*
