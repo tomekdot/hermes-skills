@@ -14,7 +14,7 @@ Hermes Agent skills by tomekdot.
 - **What**: Project-specific skill for KUL-2023-API/lab10/my-frontend — Angular 19 SPA with Material, Docker, nginx
 
 ### 🎮 OpenPlanet Plugin Development
-- **Skill**: `skills/gaming/openplanet-plugin-dev/`
+- **Skill**: `skills/software-development/openplanet-plugin-dev/`
 - **What**: Create, debug, structure Openplanet AngelScript plugins for Trackmania/Maniaplanet
 - **Also on**: [ClawHub](https://clawhub.ai/tomekdot/openplanet-plugin-dev)
 
