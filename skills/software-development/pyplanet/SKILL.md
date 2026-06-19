@@ -1,10 +1,10 @@
 ---
 name: pyplanet
-description: "PyPlanet plugin development, GitHub installer, and Clan Wars plugin"
+description: "PyPlanet plugin development, GitHub installer, and Clan Spirits plugin"
 version: 2.0.0
 metadata:
   hermes:
-    tags: [pyplanet, maniaplanet, plugin, github, installer, clan, scoring, template]
+    tags: [pyplanet, maniaplanet, plugin, github, installer, clan-spirits, scoring, template]
 ---
 
 # 🎮 PyPlanet Skills
@@ -13,9 +13,9 @@ Complete PyPlanet plugin ecosystem: starter template, GitHub installer, and Clan
 
 ## 📋 Contents
 
-1. [Hello World](#hello-world) — starter template
-2. [GitHub Installer](#github-installer) — install plugins from GitHub
-3. [Clan Wars](#clan-wars) — competitive clan scoring
+1. [Hello World](#-hello-world) — starter template
+2. [GitHub Installer](#-github-installer) — install plugins from GitHub
+3. [Clan Spirits](#-clan-spirits) — competitive clan scoring
 
 ---
 
@@ -97,7 +97,7 @@ from .app import GitHubInstaller
 
 ---
 
-## 🏆 Clan Wars
+## 🏆 Clan Spirits
 
 Competitive clan/team scoring based on local record positions.
 
@@ -124,11 +124,11 @@ Competitive clan/team scoring based on local record positions.
 
 **Option 1: GitHub Installer (recommended)**
 ```
-/ghinstall tomekdot/pyplanet-clanwars
+/ghinstall tomekdot/pyplanet-clanspirits
 ```
 
 **Option 2: Manual Install**
-1. Clone from https://github.com/tomekdot/pyplanet-clanwars
+1. Clone from https://github.com/tomekdot/pyplanet-clanspirits
 2. Place `clanwars/` in `apps/`
 3. Add `'apps.clanwars'` to `APPS['default']`
 4. Restart PyPlanet
@@ -154,10 +154,10 @@ ClanAggregateScore(clan_id, points)
 
 - **Hello World**: https://github.com/tomekdot/pyplanet-hello-world
 - **GitHub Installer**: https://github.com/tomekdot/pyplanet-github-installer
-- **Clan Wars**: https://github.com/tomekdot/pyplanet-clanwars
+- **Clan Spirits**: https://github.com/tomekdot/pyplanet-clanspirits
 
 > 📄 See `references/original-skills.md` for original skill metadata and source details.
 
 ## 📝 License
 
-MIT-0
+MIT
