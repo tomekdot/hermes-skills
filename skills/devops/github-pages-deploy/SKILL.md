@@ -1,7 +1,7 @@
 ---
 name: github-pages-deploy
 description: "Build and deploy React/Vite projects to GitHub Pages — Windows git-bash quirks, Vite cache bugs, favicon setup, and CI/CD via GitHub Actions."
-version: 1.1.0
+version: 1.5.0
 author: OWL
 license: MIT
 platforms: [windows, linux, macos]
@@ -14,6 +14,63 @@ metadata:
 
 Build and deploy static sites (React/Vite, Angular, plain HTML) to GitHub Pages.
 
+## ⚠️ CRITICAL: When Updating from External Sources
+
+When copying updated source files from an external folder (e.g. AI Studio downloads):
+
+1. **ONLY copy source files** — `src/`, `package.json`, `vite.config.ts`, `tsconfig.json`
+2. **NEVER copy `index.html`** — it contains favicon, title, and custom settings that the external source won't have
+3. **NEVER copy `assets/` folder** — it contains logo.webp and built bundles
+4. **After copying, always verify `index.html` has:**
+   - Correct `<title>` (not "My Google AI Studio App")
+   - Favicon: `<link rel="icon" type="image/webp" href="/assets/logo.webp" />`
+   - Apple touch icon: `<link rel="apple-touch-icon" href="/assets/logo.webp" />`
+5. **After copying, always verify `assets/` still has:**
+   - `logo.webp` — the site logo/favicon (DO NOT overwrite)
+   - Built JS/CSS bundles (copied from `dist/assets/` after build)
+
+### ⚠️ Pitfall: index.html Entry Point
+
+`index.html` must use Vite's standard entry point format:
+
+```html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>tomekdot — GitHub Portfolio</title>
+    <link rel="icon" type="image/webp" href="/assets/logo.webp" />
+    <link rel="apple-touch-icon" href="/assets/logo.webp" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+```
+
+**Do NOT use hardcoded asset paths** like `/assets/index-XXXXX.js` — these are from AI Studio builds and break Vite's module resolution. Always use `<script type="module" src="/src/main.tsx">`.
+
+### ⚠️ Pitfall: JSDoc Headers Breaking esbuild
+
+AI Studio and other tools may inject JSDoc comment blocks at the top of `.tsx` files:
+
+```tsx
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ * BUILD: 2026-06-18-1700
+ * CLEAN_REBUILD */
+ */
+```
+
+esbuild's TSX parser can misparse `/** ... */` blocks at the very top of the entry `.tsx` file (before imports), causing `Unexpected "*"` errors.
+
+**Fix:** Remove the JSDoc comment block from the top of the file. Move license metadata to a separate `LICENSE` file or inline as a single-line comment.
+
+**Check after copying:** Always inspect the top of `src/App.tsx` / `src/main.tsx` after copying from external sources.
+
 ## Quick Deploy (manual)
 
 ```bash
@@ -23,10 +80,6 @@ npm run build
 
 # 2. Copy dist to root (GitHub Pages serves from root on main branch)
 # IMPORTANT: cp -r dist/* . does NOT work reliably on Windows/git-bash
-# Copy files individually:
-cp dist/index.html .
-cp dist/assets/*.js assets/
-cp dist/assets/*.css assets/
 # Copy files individually:
 cp dist/index.html .
 cp dist/assets/*.js assets/
@@ -42,10 +95,8 @@ git push origin main
 
 ```
 tomekdot.github.io/
-├── index.html          # Entry point (copied from dist/)
-├── assets/             # Built JS/CSS bundles (copied from dist/assets/)
-│   ├── index-XXXXX.js  # Vite hashed bundle
-│   └── index-XXXXX.css # Tailwind CSS
+├── index.html          # Entry point — Vite generates this in dist/
+├── assets/             # Static assets (logo.webp, etc.) — NOT built JS/CSS
 ├── src/                # Source files (not served by GitHub Pages)
 │   ├── App.tsx
 │   ├── components/
@@ -73,6 +124,8 @@ Add to `index.html` `<head>`:
 
 Use GitHub avatar URL: `https://avatars.githubusercontent.com/USERNAME?s=SIZE`
 
+Or use a local logo file: `<link rel="icon" type="image/webp" href="/assets/logo.webp" />`
+
 ## Windows/git-bash Quirks
 
 ### Vite Cache Bug (CRITICAL)
@@ -81,18 +134,13 @@ Use GitHub avatar URL: `https://avatars.githubusercontent.com/USERNAME?s=SIZE`
 
 **Root cause:** Content hashing bug in Vite 6.x on MSYS2/git-bash — doesn't detect file changes properly. Affects `.tsx`, `.ts`, `.css` files. Neither `rm -rf dist`, `touch`, renaming files, complete rewrites, nor `rm -rf node_modules && npm install` fix it.
 
-**Fix:** Use Vite 5.x instead:
-```bash
-npm install vite@5
-```
+**Workarounds (try in order):**
+1. **Add a unique comment to the entry point** — add `/* BUILD: 2026-06-18-1600 */` at the top of `src/App.tsx`. Vite always re-bundles the entry point file correctly.
+2. **Switch Vite versions** — downgrade to Vite 5.x (`npm install vite@5`).
+3. **Move JSX inline** — Vite always re-bundles the entry point file correctly.
+4. **Use a non-Windows build environment** — build on Linux/Mac/GitHub Actions.
 
-**Last-resort workaround (Vite 5.x still ignores changes):** If Vite still produces the same hash after downgrading, move the JSX from the child component directly into the parent file (inline rendering). Vite always re-bundles the entry point file (App.tsx / main.tsx) correctly. For example, instead of `<RepoCard repo={repo} />`, paste the full JSX inline in the `.map()` callback. Ugly but guaranteed to work.
-
-**Workaround:** Build on a different environment (Linux/Mac/GitHub Actions/AI Studio) and copy `dist/` files to Windows for deployment.
-
-**Verification:** After `npm run build`, check `ls dist/assets/index-*.js` — hash should differ from previous build after any source edit.
-
-**Full investigation notes:** `references/vite-cache-bug-windows.md`
+**Verification:** After `npm run build`, check `ls dist/assets/index-*.js` — hash should differ from previous build.
 
 ### `cp -r dist/* .` Fails Silently
 
@@ -107,26 +155,44 @@ cp dist/assets/*.css assets/
 
 Some commands hang on git-bash with certain directories (node_modules, .git). Use `read_file` tool or `node -e "require('fs').readdirSync(...)"` instead.
 
-### `rm -rf` Requires Approval
-
-Destructive commands need user approval:
-```bash
-rm -rf dist node_modules
-```
-
 ### Path Conventions
 
 - **In terminal (git-bash):** `/c/Users/USERNAME/...` or `C:\Users\USERNAME\...`
 - **In write_file tool:** Always use `C:\Users\USERNAME\...` (native Windows paths)
 - **In read_file tool:** Either format works
 
-### Line Endings
+### Git Repository Lost (.git deleted)
 
-Git may warn `LF will be replaced by CRLF`. Cosmetic — `.gitattributes` normalizes.
+If `.git` folder is accidentally deleted (e.g. by AI Studio):
 
-## GitHub Actions CI/CD (optional)
+```bash
+git init
+git remote add origin https://github.com/USER/REPO.git
+git add -A
+git commit -m "Reinit after .git loss"
+git branch -m master main  # if branch is master instead of main
+git push origin main --force
+```
 
-Create `.github/workflows/deploy.yml`:
+Note: Force push rewrites history, but this is the correct approach when `.git` was deleted but local files are intact.
+
+## Vite `base` Config for GitHub Pages
+
+For user/organization sites (`USERNAME.github.io`), Vite's `base` must be `'/'`:
+
+```typescript
+// vite.config.ts
+export default defineConfig({
+  base: '/',
+  plugins: [react()],
+})
+```
+
+Without this, Vite prepends a base path to all asset URLs, causing 404s on GitHub Pages.
+
+## GitHub Actions CI/CD
+
+Create `.github/workflows/deploy.yml` with Node.js 24 actions:
 
 ```yaml
 name: Deploy to GitHub Pages
@@ -140,47 +206,71 @@ permissions:
   pages: write
   id-token: write
 
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
+
 jobs:
   deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
-      - run: npm ci
-      - run: npm run build
-      - uses: actions-upload-pages-artifact@v3
+          node-version: 24
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Build
+        run: npm run build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v6
         with:
-          path: dist
-      - uses: actions/deploy-pages@v4
+          path: './dist'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v6
 ```
 
-**Note:** When using GitHub Actions, change Pages source to "GitHub Actions" in repo settings.
+**Note:** Change Pages source to "GitHub Actions" in repo settings (Settings → Pages → Build and deployment → Source).
 
 ## Troubleshooting
+
+### Build fails with `Unexpected "*"` on a `.tsx` file
+- A JSDoc comment block (`/** ... */`) at the top of the entry `.tsx` file breaks esbuild's TSX parser
+- Fix: remove the JSDoc block
+
+### Page loads but assets (CSS/JS) return 404
+- Check `vite.config.ts` has `base: '/'` — without it, Vite prepends wrong paths for GitHub Pages user sites
 
 ### Page shows old content after deploy
 - GitHub Pages takes 1-2 minutes to update
 - User must hard refresh: **Ctrl+Shift+R**
-- Check `index.html` references correct JS hash
 
 ### Page is blank (white screen)
 - Check browser console for 404 errors on JS/CSS files
 - Verify `assets/` folder has the correct hashed files
-- Make sure `index.html` has correct `<script>` and `<link>` paths
 
 ### Vite build produces same hash on Windows
 - See "Vite Cache Bug" section above — downgrade to Vite 5.x
 
 ### Favicon not showing
 - Clear browser cache (Ctrl+Shift+R)
-- Check URL is correct: `https://avatars.githubusercontent.com/USERNAME?s=64`
 - Verify `<link rel="icon">` is in `<head>`
 
 ### Private repos not hiding on portfolio
 - Check `isPrivate: true` is set in `src/data.ts` for each private repo
 - Badge condition must be `repo.isPrivate` only — NOT `(repo.isPrivate || !repo.pushedAt)`
-- The `|| !repo.pushedAt` condition incorrectly shows "Private" badge on ALL repos without a `pushedAt` field (i.e. all static snapshot repos), making the toggle button appear broken
-- Toggle button filters by `hidePrivate` state variable working correctly when the badge condition is fixed
-- After fixing the badge condition, rebuild and verify: public repos should NOT show "Private" badge
