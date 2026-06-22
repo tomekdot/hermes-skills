@@ -790,9 +790,27 @@ for (int i = 0; i < g_EventCount; i++) {
 | `Float value truncated in implicit conversion` | float where int expected | Cast: `int(value)` |
 | `ERR : No matching symbol 'outDepth'` | `out` param name mismatch | Match parameter name exactly |
 | `ERR : Can't implicitly convert from 'string' to 'bool'` | `UI::InputText` return in `if()` | Call separately, check `changed` bool after |
-| `ERR on '&inout' with primitive` | `&inout` not allowed on primitives | Pass by value for reads |
-| `ERR on 'IndexOf' with 2 args` | `string::IndexOf` takes 1 param | Use `SubStr` first for offset |
-| `ERR on 'Text::Format' with 2 values` | `Text::Format` takes 1 value arg | Chain multiple `Text::Format` calls |
+|| `ERR on '&inout' with primitive` | `&inout` not allowed on primitives | Pass by value for reads |
+|| `ERR on 'IndexOf' with 2 args` | `string::IndexOf` takes 1 param | Use `SubStr` first for offset |
+|| `ERR on 'Text::Format' with 2 values` | `Text::Format` takes 1 value arg | Chain multiple `Text::Format` calls |
+|| `No matching symbol 'InsertLast'` on `Json::Value` | JSON arrays use `.Add()` not `.InsertLast()` | Use `messages.Add(item)` for Json::Value arrays |
+|| `'ByteAt' is not a member of 'string'` | AngelScript strings lack byte-level access | Use `Text::EncodeHex()` + manual hex parsing for UTF-8 byte access |
+|| `No matching symbol 'px'` after refactor | Variables in AngelScript are block-scoped | Declare shared variables at function top, not inside `if` blocks |
+
+---
+
+## 🌐 HTTP + UTF-8 Escaping (ChatBot RAG pattern)
+
+When sending JSON via `Net::HttpRequest` to external APIs (OpenRouter, OpenAI, etc.), non-ASCII characters (Polish diacritics: ą,ć,ę,ł,ń,ó,ś,ź,ż) must be escaped to `\uXXXX` format. The server may reject raw UTF-8 bytes as malformed JSON.
+
+```angelscript
+// Convert string to hex, then parse bytes manually
+string hexStr = Text::EncodeHex(str);
+// ... parse 2-char hex pairs into uint8, decode UTF-8 to code points ...
+// Output: \u015b for 'ś', \u0107 for 'ć', etc.
+```
+
+Use `Content-Type: application/json; charset=utf-8` header. Always test with Polish text early in development.
 
 ---
 
@@ -862,4 +880,201 @@ Hermes skills repo reference files: 📎 https://github.com/tomekdot/hermes-skil
 
 ---
 
-*Last updated: 2026-06-12. Covers AngelScript build as of OpenplanetNext 2026 and Openplanet 4 (Maniaplanet).*
+---
+
+## ⚡ Performance Patterns (from Grid Explorer & Tracker)
+
+### Zero-Allocation Grid Key (bit-packing)
+
+```angelscript
+// ❌ BAD: 3 string concatenations = 3 heap allocations per call
+string CellKey(int gx, int gy, int gz) {
+    return gx + "," + gy + "," + gz;
+}
+
+// ✅ GOOD: Single integer → string, one allocation
+string CellKey(int gx, int gy, int gz) {
+    uint keyVal = (uint(gx + 512) & uint(1023))
+                | ((uint(gy + 512) & uint(1023)) << 10)
+                | ((uint(gz + 512) & uint(1023)) << 20);
+    return tostring(keyVal);
+}
+
+// Decode back:
+void ParseCellKey(string key, int &out gx, int &out gy, int &out gz) {
+    uint keyVal = Text::ParseUInt(key);
+    gx = int((keyVal & uint(1023)) - uint(512));
+    gy = int(((keyVal >> uint(10)) & uint(1023)) - uint(512));
+    gz = int(((keyVal >> uint(20)) & uint(1023)) - uint(512));
+}
+```
+
+### Pre-Allocated Buffers (no GC stutter)
+
+```angelscript
+// Module-level: allocated once, reused every frame
+array<vec3> g_CornerBuffer(8);
+array<vec2> g_ProjBuffer(8);
+array<bool> g_VisibleBuffer(8);
+
+void Draw3DBlock(int gx, int gy, int gz, bool visited) {
+    // Fill buffers, project, draw — zero allocations
+    for (uint i = 0; i < 8; i++) {
+        g_VisibleBuffer[i] = ProjectToScreen(g_CornerBuffer[i], g_ProjBuffer[i]);
+    }
+}
+```
+
+### Single Loop for Multiple Layers
+
+```angelscript
+// ❌ BAD: Two separate loops = 2x iteration overhead
+for (/*xyz*/) if (visited) Draw3DBlock(..., true);
+for (/*xyz*/) if (!visited) Draw3DBlock(..., false);
+
+// ✅ GOOD: One loop, branch inside
+for (/*xyz*/) {
+    bool isVisited = g_VisitedCells.Exists(CellKey(gx, gy, gz));
+    if (isVisited) Draw3DBlock(..., true);
+    else if (S_ShowUnvisited) Draw3DBlock(..., false);
+}
+```
+
+### dt is Milliseconds
+
+```angelscript
+// Openplanet Update() passes dt in MILLISECONDS
+void Update(float dt) {
+    float dtSeconds = dt / 1000.0f;  // Convert to seconds for time tracking
+    g_CurrentCellAccum += dtSeconds;
+}
+```
+
+### Variable Scope in Render()
+
+```angelscript
+// ❌ BAD: px/py/pz only exist inside if(S_ShowGrid) block
+void Render() {
+    if (S_ShowGrid) {
+        int px = g_PlayerGX, py = g_PlayerGY, pz = g_PlayerGZ;
+        // ...
+    }
+    // ERROR: px not accessible here for ImGui window
+    UI::Text("Position: " + px);
+}
+
+// ✅ GOOD: Declare at function top
+void Render() {
+    int px = g_PlayerGX, py = g_PlayerGY, pz = g_PlayerGZ;
+    if (S_ShowGrid) { /* use px/py/pz */ }
+    if (S_ShowInfoWindow) { UI::Text("Position: " + px); }
+}
+```
+
+---
+
+## 🎨 NanoVG UI Patterns (from Grid Explorer)
+
+### Frosted Glass Radar
+
+```angelscript
+void DrawRadar() {
+    float size = S_RadarSize;
+    float posX = S_RadarX * (float(Display::GetWidth()) - size);
+    float posY = S_RadarY * (float(Display::GetHeight()) - size);
+
+    // Translucent grey-white background
+    nvg::BeginPath();
+    nvg::RoundedRect(vec2(posX, posY), vec2(size, size), 6.0f);
+    nvg::FillColor(vec4(0.92f, 0.92f, 0.95f, S_RadarBgAlpha * 0.35f));
+    nvg::Fill();
+
+    // Cell borders for definition
+    nvg::StrokeColor(vec4(0.15f, 0.15f, 0.18f, 0.18f));
+    nvg::StrokeWidth(0.8f);
+    nvg::Stroke();
+}
+```
+
+### Animated Forza-Style Alert Banner
+
+```angelscript
+void DrawAlert() {
+    uint elapsed = Time::Now - g_AlertTime;
+    float alpha = 1.0f;
+    if (elapsed < 500) alpha = float(elapsed) / 500.0f;      // Fade in
+    else if (elapsed > 2500) alpha = 1.0f - float(elapsed-2500)/500.0f; // Fade out
+
+    // Bold text: render twice with 1px offset
+    nvg::FontSize(18.0f);
+    nvg::Text(vec2(centerX, posY + 18.0f), "NEW BLOCK EXPLORED");
+    nvg::Text(vec2(centerX + 1.0f, posY + 18.0f), "NEW BLOCK EXPLORED"); // Bold
+}
+```
+
+### Heatmap Color Interpolation
+
+```angelscript
+vec4 GetHeatmapColor(float intensity, float alpha) {
+    intensity = Math::Clamp(intensity, 0.0f, 1.0f);
+    if (intensity < 0.5f) {
+        float t = intensity * 2.0f;
+        return vec4(Math::Lerp(0.10f, 0.10f, t),    // R: blue→green
+                     Math::Lerp(0.70f, 0.90f, t),    // G
+                     Math::Lerp(0.90f, 0.10f, t),    // B
+                     alpha);
+    } else {
+        float t = (intensity - 0.5f) * 2.0f;
+        return vec4(Math::Lerp(0.10f, 0.95f, t),    // R: green→orange
+                     Math::Lerp(0.90f, 0.80f, t),    // G
+                     Math::Lerp(0.10f, 0.00f, t),    // B
+                     alpha);
+    }
+}
+```
+
+---
+
+## 🔌 Public API Namespace Pattern
+
+```angelscript
+// Expose functions to other plugins via import
+namespace GridExplorer {
+    int GetPlayerCellX() {
+        if (!S_ExposeApi) return 0;  // Graceful degradation
+        return g_PlayerGX;
+    }
+    bool IsCellVisited(int gx, int gy, int gz) {
+        if (!S_ExposeApi) return false;
+        return g_VisitedCells.Exists(CellKey(gx, gy, gz));
+    }
+    // ... more functions
+}
+
+// Other plugins import with:
+// import int GridExplorer::GetPlayerCellX() from "grid-explorer-dev";
+```
+
+---
+
+## 💾 JSON Persistence Pattern
+
+```angelscript
+void SaveData() {
+    Json::Value root = Json::Object();
+    root["total"] = int(g_TotalVisited);
+    Json::Value cells = Json::Array();
+    array<string> keys = g_VisitedCells.GetKeys();
+    for (uint i = 0; i < keys.Length; i++) {
+        Json::Value c = Json::Object();
+        c["x"] = gx; c["y"] = gy; c["z"] = gz;
+        cells.Add(c);
+    }
+    root["cells"] = cells;
+    Json::ToFile(IO::FromStorageFolder("grid-explorer/" + mapUid + ".json"), root);
+}
+```
+
+---
+
+*Last updated: 2026-06-22. Covers AngelScript build as of OpenplanetNext 2026. Grid Explorer & Tracker v2.9.3 and ChatBot RAG v1.4.1 patterns included.*
