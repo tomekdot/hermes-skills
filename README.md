@@ -8,6 +8,10 @@ Hermes Agent skills by tomekdot.
 - **Skill**: `skills/software-development/angular-frontend/`
 - **What**: Comprehensive Angular dev — routing, modules, components, TypeScript config, Docker, Dependabot, version upgrades
 
+### 🧭 CUA Firefox + AI Studio Automation
+- **Skill**: `skills/software-development/computer-use-cua-firefox/`
+- **What**: Proven patterns for driving Firefox in AI Studio/Gemini via cua-driver on Windows; vision-based input, reliable send flow, bypassing UIA/execute_javascript limits
+
 ### 🚀 My Frontend Starter
 - **Skill**: `skills/software-development/my-frontend-starter/`
 - **What**: Angular 19 SPA with Material, Docker, nginx
